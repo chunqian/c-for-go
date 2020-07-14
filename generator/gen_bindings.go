@@ -773,6 +773,7 @@ func (gen *Generator) proxyValueToGo(memTip tl.Tip, varName, ptrName string,
 		proxy = fmt.Sprintf("%s(%s%s, %s)", helper.Name, ref, varName, ptrName)
 		return proxy, helper.Nillable
 	case isPlain && goSpec.Slices != 0: // ex: []byte, [][4]byte
+		fmt.Printf("[WARN] goSpec: %s plain: %s slices: %d\n", varName, goSpec.PlainType(), goSpec.Slices)
 		gen.submitHelper(sliceHeader)
 		buf := new(bytes.Buffer)
 		postfix := gen.randPostfix()

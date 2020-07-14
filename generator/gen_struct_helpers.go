@@ -208,15 +208,15 @@ func (gen *Generator) getRawStructHelpers(goStructName []byte, cStructName strin
 			goSpec.Pointers += 1
 			cgoSpec.Pointers += 1
 		}
-		fmt.Fprintf(buf,"func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
-		toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s." + m.Name, goSpec, cgoSpec)
-		fmt.Fprintf(buf,"\tvar ret %s\n", goSpec)
-		fmt.Fprintf(buf,"\t%s\n",toProxy)
+		fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
+		toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s."+m.Name, goSpec, cgoSpec)
+		fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
+		fmt.Fprintf(buf, "\t%s\n", toProxy)
 		fmt.Fprintf(buf, "\treturn ret\n")
 		fmt.Fprintf(buf, "}\n")
 		helpers = append(helpers, &Helper{
-			Name:	fmt.Sprintf("%s.Get%s", goStructName, goName),
-			Description: fmt.Sprintf("Get%s returns a reference to C object within a struct",goName),
+			Name:        fmt.Sprintf("%s.Get%s", goStructName, goName),
+			Description: fmt.Sprintf("Get%s returns a reference to C object within a struct", goName),
 			Source:      buf.String(),
 		})
 	}
