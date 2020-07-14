@@ -124,12 +124,13 @@ func (r reverseBuffer) String() string {
 	}
 	return buf.String()
 }
-func (r reverseBuffer) WriteTo(w io.Writer) {
+func (r reverseBuffer) WriteTo(w io.Writer) (n int64, err error) {
 	buf := new(bytes.Buffer)
 	for i := len(r) - 1; i >= 0; i-- {
 		buf.WriteString(r[i])
 	}
-	buf.WriteTo(w)
+	n, _ = buf.WriteTo(w)
+	return n, nil
 }
 
 func ptrs(n uint8) string {
@@ -312,7 +313,7 @@ The caller is responsible for freeing the this memory via C.free.`, name, cgoSpe
 			}
 			return mem
 		}`, name, sizeofConst)
-	fmt.Fprintln(buf, "\n")
+	fmt.Fprintln(buf)
 	fmt.Fprintf(buf, `const %s = unsafe.Sizeof([1]%s{})`, sizeofConst, cgoSpec)
 
 	helper.Source = buf.String()
