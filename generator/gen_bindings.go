@@ -469,6 +469,57 @@ func (gen *Generator) proxyValueFromGo(memTip tl.Tip, name string,
 	}
 }
 
+func (gen *Generator) proxyValueFromGoEx(memTip tl.Tip, name string,
+	goSpec tl.GoTypeSpec, cgoSpec tl.CGoSpec) (proxy string, nillable bool) {
+
+	if getHelper, ok := fromGoHelperMap[goSpec]; ok {
+		helper := getHelper(gen, cgoSpec)
+		gen.submitHelper(helper)
+		proxy = fmt.Sprintf("%s(%s)", helper.Name, name)
+		return proxy, helper.Nillable
+	}
+	gen.submitHelper(cgoAllocMap)
+
+	isPlain := (memTip == tl.TipMemRaw) || goSpec.IsPlain() || goSpec.IsPlainKind()
+	switch {
+	case !isPlain && (goSpec.Slices > 0 || len(goSpec.OuterArr) > 0), // ex: []string
+		isPlain && goSpec.Slices > 0 && len(goSpec.OuterArr) > 0, // ex: [4][]byte
+		isPlain && goSpec.Slices > 1:                             // ex: [][]byte
+		helper := gen.getUnpackHelper(goSpec, cgoSpec, false)
+		gen.submitHelper(helper)
+		proxy = fmt.Sprintf("%s(%s)", helper.Name, name)
+		return proxy, helper.Nillable
+	case isPlain && goSpec.Slices != 0: // ex: []byte
+		gen.submitHelper(sliceHeader)
+		proxy = fmt.Sprintf(
+			"(%s)(unsafe.Pointer((*sliceHeader)(unsafe.Pointer(&%s)).Data))",
+			cgoSpec, name)
+		return
+	case isPlain: // ex: byte, [4]byte
+		if (goSpec.Kind == tl.PlainTypeKind || goSpec.Kind == tl.EnumKind) &&
+			len(goSpec.OuterArr)+len(goSpec.InnerArr) == 0 && goSpec.Pointers == 0 {
+			proxy = fmt.Sprintf("(%s)(%s)", cgoSpec, name)
+			return
+		} else if goSpec.Kind == tl.FunctionKind {
+			var ref string
+			if goSpec.Pointers == 0 {
+				ref = "&"
+			}
+			proxy = fmt.Sprintf("(*[0]byte)(unsafe.Pointer(%s%s))", ref, name)
+			return
+		}
+		proxy = fmt.Sprintf("*(*%s)(unsafe.Pointer(&%s))", cgoSpec, name)
+		return
+	default: // ex: *SomeType
+		if goSpec.Pointers == 0 {
+			proxy = fmt.Sprintf("%s.PassValue()", name)
+			return
+		}
+		proxy = fmt.Sprintf("%s.PassRef()", name)
+		return
+	}
+}
+
 func (gen *Generator) proxyArgFromGo(memTip tl.Tip, name string,
 	goSpec tl.GoTypeSpec, cgoSpec tl.CGoSpec) (proxy string, nillable bool) {
 
@@ -811,7 +862,7 @@ func (gen *Generator) proxyValueToGo(memTip tl.Tip, varName, ptrName string,
 	}
 }
 
-func (gen *Generator) proxyRetToGo(memTip tl.Tip, varName, ptrName string,
+func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, varName, ptrName string,
 	goSpec tl.GoTypeSpec, cgoSpec tl.CGoSpec) (proxy string, nillable bool) {
 
 	if goSpec.IsGoString() {
@@ -838,7 +889,18 @@ func (gen *Generator) proxyRetToGo(memTip tl.Tip, varName, ptrName string,
 		if len(goSpec.OuterArr) > 0 {
 			ref = "&"
 		}
-		proxy = fmt.Sprintf("var %s %s\n%s(%s%s, %s)", varName, goSpec, helper.Name, ref, varName, ptrName)
+
+		if goSpec.Slices == 1 && goSpec.Kind == tl.StructKind {
+			fmt.Fprintf(wr, "var %s %s\n", varName, goSpec)
+			fmt.Fprintf(wr, "// completion of the function\n")
+			fmt.Fprintf(wr, "%s = make(%s, %sLength", varName, goSpec, decl.Name)
+			gen.writeFunctionParamsEx(wr, "", decl.Spec)
+			fmt.Fprintf(wr, ")\n")
+			proxy = fmt.Sprintf("%s(%s%s, %s)", helper.Name, ref, varName, ptrName)
+		} else {
+			proxy = fmt.Sprintf("var %s %s\n%s(%s%s, %s)", varName, goSpec, helper.Name, ref, varName, ptrName)
+		}
+		// proxy = fmt.Sprintf("var %s %s\n%s(%s%s, %s)", varName, goSpec, helper.Name, ref, varName, ptrName)
 		return proxy, helper.Nillable
 	case isPlain && goSpec.Slices != 0: // ex: []byte
 		specStr := ptrs(goSpec.Pointers) + goSpec.PlainType()
@@ -996,10 +1058,11 @@ func (gen *Generator) writeFunctionBody(wr io.Writer, decl *tl.CDecl) {
 		goSpec := gen.tr.TranslateSpec((*spec).Return, ptrTip, typeTip)
 		cgoSpec := gen.tr.CGoSpec((*spec).Return, false)
 
-		retProxy, nillable := gen.proxyRetToGo(memTipRx.Self(), "__v", "__ret", goSpec, cgoSpec)
+		retProxy, nillable := gen.proxyRetToGo(wr, decl, memTipRx.Self(), "__v", "__ret", goSpec, cgoSpec)
 		if nillable {
 			fmt.Fprintln(wr, "if ret == nil {\nreturn nil\n}")
 		}
+
 		fmt.Fprintln(wr, retProxy)
 		fmt.Fprintln(wr, "return __v")
 	}

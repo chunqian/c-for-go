@@ -164,6 +164,43 @@ func (gen *Generator) writeFunctionParams(wr io.Writer, funcName string, funcSpe
 	writeEndParams(wr)
 }
 
+func (gen *Generator) writeFunctionParamsEx(wr io.Writer, funcName string, funcSpec tl.CType) {
+	spec := funcSpec.(*tl.CFunctionSpec)
+	ptrTipSpecRx, _ := gen.tr.PtrTipRx(tl.TipScopeFunction, funcName)
+	// typeTipSpecRx, _ := gen.tr.TypeTipRx(tl.TipScopeFunction, funcName)
+
+	writeStartParams(wr)
+	for i, param := range spec.Params {
+		// ptrTip := ptrTipSpecRx.TipAt(i)
+
+		// if ptrTip == tl.TipPtrInst {
+		// 	continue
+		// }
+
+		// if !ptrTip.IsValid() {
+		// 	ptrTip = tl.TipPtrArr
+		// }
+
+		// typeTip := typeTipSpecRx.TipAt(i)
+		// if !typeTip.IsValid() {
+		// 	// try to use type tip for the type itself
+		// 	if tip, ok := gen.tr.TypeTipRx(tl.TipScopeType, param.Spec.CGoName()); ok {
+		// 		if tip := tip.Self(); tip.IsValid() {
+		// 			typeTip = tip
+		// 		}
+		// 	}
+		// }
+
+		// gen.writeFunctionParam(wr, param, ptrTip, typeTip)
+		fmt.Fprintf(wr, "%s", param.Name)
+
+		if i < len(spec.Params)-1 && ptrTipSpecRx.TipAt(i+1) != tl.TipPtrInst {
+			fmt.Fprintf(wr, ", ")
+		}
+	}
+	writeEndParams(wr)
+}
+
 func writeStartParams(wr io.Writer) {
 	fmt.Fprint(wr, "(")
 }
