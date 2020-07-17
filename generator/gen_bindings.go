@@ -618,8 +618,16 @@ func (gen *Generator) packObj(buf io.Writer, goSpec tl.GoTypeSpec, cgoSpec tl.CG
 		ref = "&"
 	}
 
-	fmt.Fprintf(buf, "v%s = %sNew%sRef(unsafe.Pointer(%sptr%d))\n",
-		genIndices("i", level), ptr, goSpec.Raw, ref, level)
+	switch {
+	case goSpec.Slices == 1 && goSpec.Pointers == 0 && cgoSpec.Pointers == 1:
+		fmt.Fprintf(buf, "v%s = %sNew%sRef(unsafe.Pointer(ptr%d))\n",
+			genIndices("i", level), ptr, goSpec.Raw, level)
+	default:
+		fmt.Fprintf(buf, "v%s = %sNew%sRef(unsafe.Pointer(%sptr%d))\n",
+			genIndices("i", level), ptr, goSpec.Raw, ref, level)
+	}
+	// fmt.Fprintf(buf, "v%s = %sNew%sRef(unsafe.Pointer(%sptr%d))\n",
+	// 	genIndices("i", level), ptr, goSpec.Raw, ref, level)
 	return nil
 }
 
@@ -641,6 +649,21 @@ func (gen *Generator) packSlice(buf1 io.Writer, buf2 *reverseBuffer, cgoSpec tl.
 		fmt.Fprintf(buf1, "const m = %s\n", gen.maxMem)
 		fmt.Fprintln(buf1, "for i0 := range v {")
 		fmt.Fprintf(buf1, "ptr1 := (*(*[m/%s]%s)(unsafe.Pointer(ptr0)))[i0]\n", sizeConst, cgoSpecLevel)
+		buf2.Linef("}\n")
+		return
+	}
+	fmt.Fprintf(buf1, "for i%d := range v%s {\n", level, genIndices("i", level))
+	fmt.Fprintf(buf1, "ptr%d := (*(*[m/%s]%s)(unsafe.Pointer(ptr%d)))[i%d]\n",
+		level+1, sizeConst, cgoSpecLevel, level, level)
+	buf2.Linef("}\n")
+}
+
+func (gen *Generator) packSliceEx(buf1 io.Writer, buf2 *reverseBuffer, cgoSpec tl.CGoSpec, sizeConst string, level uint8) {
+	cgoSpecLevel := cgoSpec.AtLevel(level + 1)
+	if level == 0 {
+		fmt.Fprintln(buf1, "// c struct pointer offset")
+		fmt.Fprintln(buf1, "for i0 := range v {")
+		fmt.Fprintf(buf1, "ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(%s)))\n", cgoSpec, sizeConst)
 		buf2.Linef("}\n")
 		return
 	}
@@ -721,8 +744,14 @@ func (gen *Generator) getPackHelper(memTip tl.Tip, goSpec tl.GoTypeSpec, cgoSpec
 	case isPlain:
 		packPlain(buf1, cgoSpec, goSpec.PlainType(), goSpec.Pointers, level)
 	case isSlice:
-		gen.packSlice(buf1, buf2, cgoSpec, getSizeSpec(level+1), level)
-		goSpec.Slices = 0
+		switch {
+		case goSpec.Slices == 1 && goSpec.Pointers == 0 && cgoSpec.Pointers == 1:
+			gen.packSliceEx(buf1, buf2, cgoSpec, getSizeSpec(level+1), level)
+		default:
+			gen.packSlice(buf1, buf2, cgoSpec, getSizeSpec(level+1), level)
+			goSpec.Slices = 0
+		}
+		// goSpec.Slices = 0
 		if helper := gen.packObj(buf1, goSpec, cgoSpec, level+1); helper != nil {
 			h.Requires = append(h.Requires, helper)
 		}

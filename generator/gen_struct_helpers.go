@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hash/crc32"
 
-	// "github.com/chunqian/q"
 	tl "github.com/xlab/c-for-go/translator"
 )
 
