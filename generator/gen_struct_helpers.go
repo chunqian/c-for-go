@@ -158,37 +158,37 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			cgoSpec.Pointers += 1
 		}
 
-		switch goSpec.Kind {
-		case tl.StructKind:
-			if goSpec.Slices == 0 {
-				fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
-				toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
-				fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
-				fmt.Fprintf(buf, "\t%s\n", toProxy)
-				fmt.Fprintf(buf, "\treturn ret\n")
-				fmt.Fprintf(buf, "}\n")
-			}
-			if goSpec.Slices == 1 {
-				fmt.Fprintf(buf, "func (s *%s) Get%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
-				toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
-				fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
-				fmt.Fprintf(buf, "\tret = make(%s, %sCount)\n", goSpec, m.Name)
-				fmt.Fprintf(buf, "\t%s\n", toProxy)
-				fmt.Fprintf(buf, "\treturn ret\n")
-				fmt.Fprintf(buf, "}\n")
-			}
-			if goSpec.Slices == 2 {
-				goSpecS1 := goSpec
-				goSpecS1.Slices -= 1
-				cgoSpecP2 := cgoSpec
-				cgoSpecP2.Pointers -= 1
-				cgoSpecP1 := cgoSpec
-				cgoSpecP1.Pointers -= 2
-				cgoSpecP0 := cgoSpec
-				cgoSpecP0.Pointers -= 3
-				// q.Q(string(goStructName), goSpec, cgoSpec, m)
-				fmt.Fprintf(buf, "func (s *%s) Get%s(%sRow int32, %sColumn int32) %s", goStructName, goName, m.Name, m.Name, goSpec)
-				fmt.Fprintf(buf, `{
+		switch {
+		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
+			fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
+			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
+			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
+			fmt.Fprintf(buf, "\t%s\n", toProxy)
+			fmt.Fprintf(buf, "\treturn ret\n")
+			fmt.Fprintf(buf, "}\n")
+		case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
+			goSpec.Pointers -= 1
+			cgoSpec.Pointers -= 1
+			fmt.Fprintf(buf, "func (s *%s) Get%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
+			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "s.Ref()."+m.Name, goSpec, cgoSpec)
+			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
+			fmt.Fprintf(buf, "\tret = make(%s, %sCount)\n", goSpec, m.Name)
+			fmt.Fprintf(buf, "\t%s\n", toProxy)
+			fmt.Fprintf(buf, "\treturn ret\n")
+			fmt.Fprintf(buf, "}\n")
+			goSpec.Pointers += 1
+			cgoSpec.Pointers += 1
+		case goSpec.Kind == tl.StructKind && goSpec.Slices == 2:
+			goSpecS1 := goSpec
+			goSpecS1.Slices -= 1
+			cgoSpecP2 := cgoSpec
+			cgoSpecP2.Pointers -= 1
+			cgoSpecP1 := cgoSpec
+			cgoSpecP1.Pointers -= 2
+			cgoSpecP0 := cgoSpec
+			cgoSpecP0.Pointers -= 3
+			fmt.Fprintf(buf, "func (s *%s) Get%s(%sRow int32, %sColumn int32) %s", goStructName, goName, m.Name, m.Name, goSpec)
+			fmt.Fprintf(buf, `{
 					row, column := %sRow, %sColumn
 					ret := make(%s, row)
 					for i := range ret {
@@ -205,9 +205,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 					}
 					return ret
 				}`, m.Name, m.Name, goSpec, goSpecS1, m.Name, cgoSpecP0, m.Spec.GetBase(), cgoSpecP0, m.Spec.GetBase())
-			}
-
-		case tl.PlainTypeKind:
+		case goSpec.Kind == tl.PlainTypeKind:
 			fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
@@ -228,11 +226,11 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			goSpec.Pointers -= 1
 			cgoSpec.Pointers -= 1
 		}
-		switch goSpec.Kind {
-		case tl.StructKind:
-			if goSpec.Slices == 0 {
-				fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
-				fmt.Fprintf(buf, `{
+
+		switch {
+		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
+			fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
+			fmt.Fprintf(buf, `{
 					if s.Ref() == nil { return nil }
 						if %s.Ref() == nil {
 							__ret, _ := %s.PassRef()
@@ -242,25 +240,22 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 						}
 						return s
 				}`, m.Name, m.Name, m.Name, m.Name, m.Name)
-			} else {
-				goSpec.Slices = 0
-				goSpecName = fmt.Sprintf("%s", goSpec)
-				sizeConst := "sizeOfPtr"
+		case goSpec.Kind == tl.StructKind && goSpec.Slices > 0:
+			goSpec.Slices = 0
+			goSpecName = fmt.Sprintf("%s", goSpec)
+			sizeConst := "sizeOfPtr"
+			fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpec)
+			fmt.Fprintf(buf, "const m = %s\n", gen.maxMem)
+			fmt.Fprintf(buf, "if s.Ref() == nil { return }\n")
+			fmt.Fprintf(buf, "(*(*[m/%s]*%s)(unsafe.Pointer(&s.Ref().%s)))[%sIndex] = %s.Ref()\n", sizeConst, cgoSpec.Base, m.Name, m.Name, unexportName(goSpecName))
+			fmt.Fprintf(buf, "}\n")
 
-				fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpec)
-				fmt.Fprintf(buf, "const m = %s\n", gen.maxMem)
-				fmt.Fprintf(buf, "if s.Ref() == nil { return }\n")
-				fmt.Fprintf(buf, "(*(*[m/%s]*%s)(unsafe.Pointer(&s.Ref().%s)))[%sIndex] = %s.Ref()\n", sizeConst, cgoSpec.Base, m.Name, m.Name, unexportName(goSpecName))
-				fmt.Fprintf(buf, "}\n")
-			}
-		case tl.PlainTypeKind:
-			if goSpec.Slices == 0 {
-				fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) {\n", goStructName, goName, m.Name, goSpec)
-				fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
-				fmt.Fprintf(buf, "if s.Ref() == nil { return }\n")
-				fmt.Fprintf(buf, "\ts.Ref().%s = %s\n", m.Name, fromProxy)
-				fmt.Fprintf(buf, "}\n")
-			}
+		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
+			fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) {\n", goStructName, goName, m.Name, goSpec)
+			fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
+			fmt.Fprintf(buf, "if s.Ref() == nil { return }\n")
+			fmt.Fprintf(buf, "\ts.Ref().%s = %s\n", m.Name, fromProxy)
+			fmt.Fprintf(buf, "}\n")
 		}
 		helpers = append(helpers, &Helper{
 			Name:        fmt.Sprintf("%s.Set%s", goStructName, goName),
