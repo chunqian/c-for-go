@@ -27,6 +27,20 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	})
 
 	buf.Reset()
+	fmt.Fprintf(buf, "func (x *%s) Resetref()", goStructName)
+	fmt.Fprintf(buf, `{
+		if x == nil {
+			return
+		}
+		x.ref%2x = nil
+	}`, crc)
+	helpers = append(helpers, &Helper{
+		Name:        fmt.Sprintf("%s.Resetref", goStructName),
+		Description: "Resetref set ref nil if memory freed by CGo call C function.",
+		Source:      buf.String(),
+	})
+
+	buf.Reset()
 	fmt.Fprintf(buf, "func (x *%s) Free()", goStructName)
 	fmt.Fprintf(buf, `{
 		if x != nil && x.allocs%2x != nil {
@@ -97,21 +111,6 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			"Do not forget to call this method whether you get a struct for C object and want to read its values.",
 		Source: buf.String(),
 	})
-
-	// buf.Reset()
-	// fmt.Fprintf(buf, "func (x *%s) Freeref()", goStructName)
-	// fmt.Fprintf(buf, `{
-	// 	if x.ref%2x != nil && x.allocs%2x == nil {
-	// 		C.free(unsafe.Pointer(x.ref%2x))
-	// 		x.ref%2x = nil
-	// 	}
-	// }`, crc, crc, crc, crc)
-	// helpers = append(helpers, &Helper{
-	// 	Name: fmt.Sprintf("%s.Freeref", goStructName),
-	// 	Description: "Freeref uses the underlying reference to C object and fills the wrapping struct with values.\n" +
-	// 		"Do not forget to call this method whether you get a struct for C object and want to read its values.",
-	// 	Source: buf.String(),
-	// })
 
 	// More
 	if spec.GetPointers() > 0 {
