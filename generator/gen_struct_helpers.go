@@ -179,32 +179,38 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			goSpec.Pointers += 1
 			cgoSpec.Pointers += 1
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 2:
-			goSpecS1 := goSpec
-			goSpecS1.Slices -= 1
+			goSpecS2P0 := goSpec
+			goSpecS2P0.Pointers -= 1
+
+			goSpecS1P0 := goSpec
+			goSpecS1P0.Pointers -= 1
+			goSpecS1P0.Slices -= 1
+
 			cgoSpecP2 := cgoSpec
 			cgoSpecP2.Pointers -= 1
+
 			cgoSpecP1 := cgoSpec
 			cgoSpecP1.Pointers -= 2
+
 			cgoSpecP0 := cgoSpec
 			cgoSpecP0.Pointers -= 3
-			fmt.Fprintf(buf, "func (s *%s) Get%s(%sRow int32, %sColumn int32) %s", goStructName, goName, m.Name, m.Name, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) Get%s(%sRow int32, %sColumn int32) %s", goStructName, goName, m.Name, m.Name, goSpecS2P0)
 			fmt.Fprintf(buf, `{
 					row, column := %sRow, %sColumn
 					ret := make(%s, row)
 					for i := range ret {
 						ret[i] = make(%s, column)
 					}
-					const m = 0x7fffffff
 					ptr0 := s.Ref().%s
 					for i0 := range ret {
-						ptr1 := (*(*[m / sizeOfPtr]*%s)(unsafe.Pointer(ptr0)))[i0]
+						ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(sizeOfPtr)))
 						for i1 := range ret[i0] {
-							ptr2 := (*(*[m / sizeOf%sValue]%s)(unsafe.Pointer(ptr1)))[i1]
-							ret[i0][i1] = New%sRef(unsafe.Pointer(&ptr2))
+							ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(i1)*uintptr(sizeOf%sValue)))
+							ret[i0][i1] = *New%sRef(unsafe.Pointer(ptr2))
 						}
 					}
 					return ret
-				}`, m.Name, m.Name, goSpec, goSpecS1, m.Name, cgoSpecP0, m.Spec.GetBase(), cgoSpecP0, m.Spec.GetBase())
+				}`, m.Name, m.Name, goSpecS2P0, goSpecS1P0, m.Name, cgoSpecP2, cgoSpecP1, m.Spec.GetBase(), m.Spec.GetBase())
 		case goSpec.Kind == tl.PlainTypeKind:
 			fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
