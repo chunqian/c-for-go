@@ -101,16 +101,16 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		Source:      buf.String(),
 	})
 
-	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) Deref() {\n", goStructName)
-	buf.Write(gen.getDerefSource(goStructName, cStructName, spec))
-	buf.WriteRune('}')
-	helpers = append(helpers, &Helper{
-		Name: fmt.Sprintf("%s.Deref", goStructName),
-		Description: "Deref uses the underlying reference to C object and fills the wrapping struct with values.\n" +
-			"Do not forget to call this method whether you get a struct for C object and want to read its values.",
-		Source: buf.String(),
-	})
+	// buf.Reset()
+	// fmt.Fprintf(buf, "func (x *%s) Deref() {\n", goStructName)
+	// buf.Write(gen.getDerefSource(goStructName, cStructName, spec))
+	// buf.WriteRune('}')
+	// helpers = append(helpers, &Helper{
+	// 	Name: fmt.Sprintf("%s.Deref", goStructName),
+	// 	Description: "Deref uses the underlying reference to C object and fills the wrapping struct with values.\n" +
+	// 		"Do not forget to call this method whether you get a struct for C object and want to read its values.",
+	// 	Source: buf.String(),
+	// })
 
 	// More
 	if spec.GetPointers() > 0 {
@@ -211,7 +211,14 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 					}
 					return ret
 				}`, m.Name, m.Name, goSpecS2P0, goSpecS1P0, m.Name, cgoSpecP2, cgoSpecP1, m.Spec.GetBase(), m.Spec.GetBase())
-		case goSpec.Kind == tl.PlainTypeKind:
+		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices > 0:
+			fmt.Fprintf(buf, "func (s *%s) Get%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
+			toProxy, _ := gen.proxyValueToGo(memTip, "ret", m.Name, goSpec, cgoSpec)
+			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
+			fmt.Fprintf(buf, "\t%s\n", toProxy)
+			fmt.Fprintf(buf, "\treturn ret\n")
+			fmt.Fprintf(buf, "}\n")
+		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
 			fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)

@@ -852,7 +852,34 @@ func (gen *Generator) proxyValueToGo(memTip tl.Tip, varName, ptrName string,
 		}
 		proxy = fmt.Sprintf("%s(%s%s, %s)", helper.Name, ref, varName, ptrName)
 		return proxy, helper.Nillable
-	case isPlain && goSpec.Slices != 0: // ex: []byte, [][4]byte
+	case isPlain && goSpec.Slices == 1: // ex: []byte
+		buf := new(bytes.Buffer)
+		gen.submitHelper(sliceHeader)
+
+		goSpecS0P1 := goSpec
+		goSpecS0P1.Slices -= 1
+
+		goSpecS0P0 := goSpec
+		goSpecS0P0.Slices -= 1
+		goSpecS0P0.Pointers -= 1
+
+		cgoSpecP0 := cgoSpec
+		cgoSpecP0.Pointers -= 2
+		cgoSpecP1 := cgoSpec
+		cgoSpecP1.Pointers -= 1
+		fmt.Fprintf(buf, `
+			const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
+			ret = make(%s, %sCount)
+			ptr0 := s.Ref().%s
+		    // c struct pointer offset
+		    for i0 := range ret {
+		        ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(sizeOfPlainValue)))
+				ret[i0] = (%s)(unsafe.Pointer(ptr1))
+		    }`, cgoSpecP0, goSpec, ptrName, ptrName, cgoSpecP1, goSpecS0P1)
+
+		proxy = buf.String()
+		return
+	case isPlain && goSpec.Slices > 1: // ex: [][4]byte
 		fmt.Printf("[WARN] goSpec: %s plain: %s slices: %d\n", varName, goSpec.PlainType(), goSpec.Slices)
 		gen.submitHelper(sliceHeader)
 		buf := new(bytes.Buffer)
