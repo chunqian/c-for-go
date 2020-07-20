@@ -169,7 +169,7 @@ func (gen *Generator) writeFunctionParamsEx(wr io.Writer, funcName string, funcS
 	ptrTipSpecRx, _ := gen.tr.PtrTipRx(tl.TipScopeFunction, funcName)
 	// typeTipSpecRx, _ := gen.tr.TypeTipRx(tl.TipScopeFunction, funcName)
 
-	writeStartParams(wr)
+	// writeStartParams(wr)
 	for i, param := range spec.Params {
 		// ptrTip := ptrTipSpecRx.TipAt(i)
 
@@ -198,7 +198,7 @@ func (gen *Generator) writeFunctionParamsEx(wr io.Writer, funcName string, funcS
 			fmt.Fprintf(wr, ", ")
 		}
 	}
-	writeEndParams(wr)
+	// writeEndParams(wr)
 }
 
 func writeStartParams(wr io.Writer) {

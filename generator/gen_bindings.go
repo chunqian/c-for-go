@@ -937,8 +937,7 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 	isPlain := (memTip == tl.TipMemRaw) || goSpec.IsPlain() || goSpec.IsPlainKind()
 	switch {
 	case !isPlain && (goSpec.Slices > 0 || len(goSpec.OuterArr) > 0), // ex: []string
-		isPlain && goSpec.Slices > 0 && len(goSpec.OuterArr) > 0, // ex: [4][]byte
-		isPlain && goSpec.Slices > 1:                             // ex: [][]byte
+		isPlain && goSpec.Slices > 0 && len(goSpec.OuterArr) > 0: // ex: [4][]byte
 		helper := gen.getPackHelper(memTip, goSpec, cgoSpec)
 		gen.submitHelper(helper)
 		var ref string
@@ -949,10 +948,53 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 		if goSpec.Slices == 1 && goSpec.Kind == tl.StructKind {
 			fmt.Fprintf(wr, "var %s %s\n", varName, goSpec)
 			fmt.Fprintf(wr, "// completion of the function\n")
-			fmt.Fprintf(wr, "%s = make(%s, %sLength", varName, goSpec, decl.Name)
+			fmt.Fprintf(wr, "%s = make(%s, %sLength", varName, goSpec, unexportName(decl.Name))
+			writeStartParams(wr)
 			gen.writeFunctionParamsEx(wr, "", decl.Spec)
+			writeEndParams(wr)
 			fmt.Fprintf(wr, ")\n")
 			proxy = fmt.Sprintf("%s(%s%s, %s)", helper.Name, ref, varName, ptrName)
+		} else {
+			proxy = fmt.Sprintf("var %s %s\n%s(%s%s, %s)", varName, goSpec, helper.Name, ref, varName, ptrName)
+		}
+		// proxy = fmt.Sprintf("var %s %s\n%s(%s%s, %s)", varName, goSpec, helper.Name, ref, varName, ptrName)
+		return proxy, helper.Nillable
+	case isPlain && goSpec.Slices > 1: // ex: [][]byte
+		goSpecS1 := goSpec
+		goSpecS1.Slices -= 1
+
+		goSpecS0P1 := goSpec
+		goSpecS0P1.Slices -= 2
+		goSpecS0P1.Pointers += 1
+
+		cgoSpecP1 := cgoSpec
+		cgoSpecP1.Pointers -= 1
+
+		helper := gen.getPackHelper(memTip, goSpec, cgoSpec)
+		gen.submitHelper(helper)
+		var ref string
+		if len(goSpec.OuterArr) > 0 {
+			ref = "&"
+		}
+		if goSpec.Base == "byte" {
+			buf := new(bytes.Buffer)
+			fmt.Fprint(buf, "ptrRow, ")
+			gen.writeFunctionParamsEx(buf, "", decl.Spec)
+
+			proxy = fmt.Sprintf(`
+			    const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
+			    __v := make(%s, *count)
+			    
+			    for i0 := range __v {
+			        ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(__ret)) + uintptr(i0)*uintptr(sizeOfPtr)))
+			        ptrRow := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1))))
+			        // completion of the function
+			        __v[i0] = make([]byte, %sLength(%s))
+			        for i1 := range __v[i0] {
+			            ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(i1)*uintptr(sizeOfPlainValue)))
+			            __v[i0][i1] = *(%s)(unsafe.Pointer(ptr2))
+			        }
+				}`, cgoSpec.Base, goSpec, cgoSpec, cgoSpecP1, unexportName(decl.Name), buf.String(), cgoSpecP1, goSpecS0P1)
 		} else {
 			proxy = fmt.Sprintf("var %s %s\n%s(%s%s, %s)", varName, goSpec, helper.Name, ref, varName, ptrName)
 		}

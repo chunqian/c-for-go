@@ -6,6 +6,7 @@ import (
 	"hash/crc32"
 
 	tl "github.com/xlab/c-for-go/translator"
+	"github.com/chunqian/q"
 )
 
 func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, spec tl.CType) (helpers []*Helper) {
@@ -226,6 +227,10 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			fmt.Fprintf(buf, "\treturn ret\n")
 			fmt.Fprintf(buf, "}\n")
 		}
+		if (cgoSpec.Base == "C.rAudioBuffer") {
+			q.Q(goSpec, cgoSpec)
+		}
+		
 		helpers = append(helpers, &Helper{
 			Name:        fmt.Sprintf("%s.Get%s", goStructName, goName),
 			Description: fmt.Sprintf("Get%s returns a reference to C object within a struct", goName),
@@ -270,6 +275,10 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			fmt.Fprintf(buf, "\ts.Ref().%s = %s\n", m.Name, fromProxy)
 			fmt.Fprintf(buf, "}\n")
 		}
+		if (cgoSpec.Base == "C.rAudioBuffer") {
+			q.Q(goSpec, cgoSpec)
+		}
+		
 		helpers = append(helpers, &Helper{
 			Name:        fmt.Sprintf("%s.Set%s", goStructName, goName),
 			Description: fmt.Sprintf("Set%s update C object and binding struct", goName),
