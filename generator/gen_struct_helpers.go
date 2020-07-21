@@ -6,7 +6,6 @@ import (
 	"hash/crc32"
 
 	tl "github.com/xlab/c-for-go/translator"
-	"github.com/chunqian/q"
 )
 
 func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, spec tl.CType) (helpers []*Helper) {
@@ -28,7 +27,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	})
 
 	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) Resetref()", goStructName)
+	fmt.Fprintf(buf, "func (x *%s) ResetRef()", goStructName)
 	fmt.Fprintf(buf, `{
 		if x == nil {
 			return
@@ -36,13 +35,13 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		x.ref%2x = nil
 	}`, crc)
 	helpers = append(helpers, &Helper{
-		Name:        fmt.Sprintf("%s.Resetref", goStructName),
-		Description: "Resetref set ref nil if memory freed by CGo call C function.",
+		Name:        fmt.Sprintf("%s.ResetRef", goStructName),
+		Description: "ResetRef set ref nil if memory freed by CGo call C function.",
 		Source:      buf.String(),
 	})
 
 	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) Free()", goStructName)
+	fmt.Fprintf(buf, "func (x *%s) FreeRef()", goStructName)
 	fmt.Fprintf(buf, `{
 		if x != nil && x.allocs%2x != nil {
 			x.allocs%2x.(*cgoAllocMap).Free()
@@ -56,8 +55,24 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		}
 	}`, crc, crc, crc, crc, crc, crc, crc)
 	helpers = append(helpers, &Helper{
-		Name: fmt.Sprintf("%s.Free", goStructName),
-		Description: "Free invokes alloc map's free mechanism that cleanups any allocated memory using C free.\n" +
+		Name: fmt.Sprintf("%s.FreeRef", goStructName),
+		Description: "FreeRef invokes alloc map's free mechanism that cleanups any allocated memory using C free.\n" +
+			"Does nothing if struct is nil or has no allocation map.",
+		Source: buf.String(),
+	})
+
+	buf.Reset()
+	fmt.Fprintf(buf, "func free%s(x *%s)", goStructName, goStructName)
+	fmt.Fprintf(buf, `{
+		if x != nil && x.allocs%2x != nil {
+			x.allocs%2x.(*cgoAllocMap).Free()
+			x.ref%2x = nil
+			return
+		}
+	}`, crc, crc, crc)
+	helpers = append(helpers, &Helper{
+		Name: fmt.Sprintf("free%s", goStructName),
+		Description: "Auto free invokes alloc map's free mechanism that cleanups any allocated memory using C free.\n" +
 			"Does nothing if struct is nil or has no allocation map.",
 		Source: buf.String(),
 	})
@@ -161,7 +176,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 		switch {
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
-			fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) Ref%s() %s {\n", goStructName, goName, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
 			fmt.Fprintf(buf, "\t%s\n", toProxy)
@@ -170,7 +185,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
 			goSpec.Pointers -= 1
 			cgoSpec.Pointers -= 1
-			fmt.Fprintf(buf, "func (s *%s) Get%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) Ref%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "s.Ref()."+m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
 			fmt.Fprintf(buf, "\tret = make(%s, %sCount)\n", goSpec, m.Name)
@@ -195,7 +210,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 			cgoSpecP0 := cgoSpec
 			cgoSpecP0.Pointers -= 3
-			fmt.Fprintf(buf, "func (s *%s) Get%s(%sRow int32, %sColumn int32) %s", goStructName, goName, m.Name, m.Name, goSpecS2P0)
+			fmt.Fprintf(buf, "func (s *%s) Ref%s(%sRow int32, %sColumn int32) %s", goStructName, goName, m.Name, m.Name, goSpecS2P0)
 			fmt.Fprintf(buf, `{
 					row, column := %sRow, %sColumn
 					ret := make(%s, row)
@@ -213,27 +228,24 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 					return ret
 				}`, m.Name, m.Name, goSpecS2P0, goSpecS1P0, m.Name, cgoSpecP2, cgoSpecP1, m.Spec.GetBase(), m.Spec.GetBase())
 		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices > 0:
-			fmt.Fprintf(buf, "func (s *%s) Get%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) Ref%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
 			fmt.Fprintf(buf, "\t%s\n", toProxy)
 			fmt.Fprintf(buf, "\treturn ret\n")
 			fmt.Fprintf(buf, "}\n")
 		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
-			fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) Ref%s() %s {\n", goStructName, goName, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
 			fmt.Fprintf(buf, "\t%s\n", toProxy)
 			fmt.Fprintf(buf, "\treturn ret\n")
 			fmt.Fprintf(buf, "}\n")
 		}
-		if (cgoSpec.Base == "C.rAudioBuffer") {
-			q.Q(goSpec, cgoSpec)
-		}
 		
 		helpers = append(helpers, &Helper{
-			Name:        fmt.Sprintf("%s.Get%s", goStructName, goName),
-			Description: fmt.Sprintf("Get%s returns a reference to C object within a struct", goName),
+			Name:        fmt.Sprintf("%s.Ref%s", goStructName, goName),
+			Description: fmt.Sprintf("Ref%s returns a reference to C object within a struct", goName),
 			Source:      buf.String(),
 		})
 		buf.Reset()
@@ -247,7 +259,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 		switch {
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
+			fmt.Fprintf(buf, "func (s *%s) SetRef%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
 			fmt.Fprintf(buf, `{
 					if s.Ref() == nil { return nil }
 						if %s.Ref() == nil {
@@ -262,26 +274,23 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			goSpec.Slices = 0
 			goSpecName = fmt.Sprintf("%s", goSpec)
 			sizeConst := "sizeOfPtr"
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpec)
+			fmt.Fprintf(buf, "func (s *%s) SetRef%s(%sIndex int32, %s %s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpec)
 			fmt.Fprintf(buf, "const m = %s\n", gen.maxMem)
 			fmt.Fprintf(buf, "if s.Ref() == nil { return }\n")
 			fmt.Fprintf(buf, "(*(*[m/%s]*%s)(unsafe.Pointer(&s.Ref().%s)))[%sIndex] = %s.Ref()\n", sizeConst, cgoSpec.Base, m.Name, m.Name, unexportName(goSpecName))
 			fmt.Fprintf(buf, "}\n")
 
 		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) {\n", goStructName, goName, m.Name, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) SetRef%s(%s %s) {\n", goStructName, goName, m.Name, goSpec)
 			fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "if s.Ref() == nil { return }\n")
 			fmt.Fprintf(buf, "\ts.Ref().%s = %s\n", m.Name, fromProxy)
 			fmt.Fprintf(buf, "}\n")
 		}
-		if (cgoSpec.Base == "C.rAudioBuffer") {
-			q.Q(goSpec, cgoSpec)
-		}
-		
+
 		helpers = append(helpers, &Helper{
-			Name:        fmt.Sprintf("%s.Set%s", goStructName, goName),
-			Description: fmt.Sprintf("Set%s update C object and binding struct", goName),
+			Name:        fmt.Sprintf("%s.SetRef%s", goStructName, goName),
+			Description: fmt.Sprintf("SetRef%s update C object and binding struct", goName),
 			Source:      buf.String(),
 		})
 	}
@@ -481,6 +490,10 @@ func (gen *Generator) getPassRefSource(goStructName []byte, cStructName string, 
 	}
 	fmt.Fprintf(buf, "x.ref%2x = ref%2x\n", crc, crc)
 	fmt.Fprintf(buf, "x.allocs%2x = allocs%2x\n", crc, crc)
+	// auto free memory
+	fmt.Fprintf(buf, "// auto free memory\n")
+	fmt.Fprintf(buf, "runtime.SetFinalizer(x, free%s)\n", string(goStructName))
+
 	fmt.Fprintf(buf, "return ref%2x, allocs%2x\n", crc, crc)
 	writeSpace(buf, 1)
 	return buf.Bytes()
