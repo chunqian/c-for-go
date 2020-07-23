@@ -67,9 +67,29 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		if x != nil && x.allocs%2x != nil {
 			x.allocs%2x.(*cgoAllocMap).Free()
 			x.ref%2x = nil
+			// fmt.Printf("%s memory: %%p free\n", x)
+			// return
+		}
+		gc.mux.Lock() // gc lock
+		a := x.allocs%2x.(*cgoAllocMap)
+		if gc.references == nil {
 			return
 		}
-	}`, crc, crc, crc)
+		for ptr := range a.m {
+			// C.free(ptr)
+			// delete(a.m, ptr)
+			if _, ok := gc.references[ptr]; ok {
+				gc.references[ptr].count -= 1
+				if gc.references[ptr].count == 0 {
+					fmt.Printf("%s memory: %%p free\n", ptr)
+					C.free(ptr)
+					delete(gc.references, ptr)
+					fmt.Printf("del reference, still exist: %%d\n", len(gc.references))
+				}
+			}
+		}
+		gc.mux.Unlock() // gc unlock
+	}`, crc, crc, crc, goStructName, crc, cgoSpec.Base)
 	helpers = append(helpers, &Helper{
 		Name: fmt.Sprintf("free%s", goStructName),
 		Description: "Auto free invokes alloc map's free mechanism that cleanups any allocated memory using C free.\n" +
@@ -105,6 +125,21 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		Description: "PassRef returns the underlying C object, otherwise it will allocate one and set its values\n" +
 			"from this wrapping struct, counting allocations into an allocation map.",
 		Source: buf.String(),
+	})
+
+	buf.Reset()
+	fmt.Fprintf(buf, "func (x %s) Pass() *%s", goStructName, goStructName)
+	fmt.Fprintf(buf, `{
+		if x.ref%2x != nil {
+			return &x
+		}
+		x.PassRef()
+		return &x
+	}`, crc)
+	helpers = append(helpers, &Helper{
+		Name:        fmt.Sprintf("%s.Pass", goStructName),
+		Description: "Pass does the same as PassRef except that it will try to dereference the returned pointer.",
+		Source:      buf.String(),
 	})
 
 	buf.Reset()
@@ -274,17 +309,19 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			goSpec.Slices = 0
 			goSpecName = fmt.Sprintf("%s", goSpec)
 			sizeConst := "sizeOfPtr"
-			fmt.Fprintf(buf, "func (s *%s) SetRef%s(%sIndex int32, %s %s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpec)
+			fmt.Fprintf(buf, "func (s *%s) SetRef%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpec, goStructName)
 			fmt.Fprintf(buf, "const m = %s\n", gen.maxMem)
-			fmt.Fprintf(buf, "if s.Ref() == nil { return }\n")
+			fmt.Fprintf(buf, "if s.Ref() == nil { return nil }\n")
 			fmt.Fprintf(buf, "(*(*[m/%s]*%s)(unsafe.Pointer(&s.Ref().%s)))[%sIndex] = %s.Ref()\n", sizeConst, cgoSpec.Base, m.Name, m.Name, unexportName(goSpecName))
+			fmt.Fprintf(buf, "return s\n")
 			fmt.Fprintf(buf, "}\n")
 
 		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
-			fmt.Fprintf(buf, "func (s *%s) SetRef%s(%s %s) {\n", goStructName, goName, m.Name, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) SetRef%s(%s %s) (*%s) {\n", goStructName, goName, m.Name, goSpec, goStructName)
 			fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
-			fmt.Fprintf(buf, "if s.Ref() == nil { return }\n")
+			fmt.Fprintf(buf, "if s.Ref() == nil { return nil }\n")
 			fmt.Fprintf(buf, "\ts.Ref().%s = %s\n", m.Name, fromProxy)
+			fmt.Fprintf(buf, "return s\n")
 			fmt.Fprintf(buf, "}\n")
 		}
 

@@ -1225,7 +1225,18 @@ var (
 	cgoAllocMap = &Helper{
 		Name:        "cgoAllocMap",
 		Description: "cgoAllocMap stores pointers to C allocated memory for future reference.",
-		Source: `type cgoAllocMap struct {
+		Source: `type reference struct {
+			count int
+		}
+
+		type collector struct {
+			mux        sync.RWMutex
+			references map[unsafe.Pointer]*reference
+		}
+
+		var gc = new(collector)
+
+		type cgoAllocMap struct {
 			mux sync.RWMutex
 			m   map[unsafe.Pointer]struct{}
 		}
@@ -1234,11 +1245,24 @@ var (
 
 		func (a *cgoAllocMap) Add(ptr unsafe.Pointer) {
 			a.mux.Lock()
+			gc.mux.Lock() // gc lock
 			if a.m == nil {
 				a.m = make(map[unsafe.Pointer]struct{})
 			}
 			a.m[ptr] = struct{}{}
+
+			if gc.references == nil {
+				gc.references = make(map[unsafe.Pointer]*reference)
+			}
+			if _, ok := gc.references[ptr]; ok {
+				panic("The memory address already exists.")
+			}
+			gc.references[ptr] = &reference{}
+			gc.references[ptr].count += 1
+			fmt.Printf("add reference, still exist: %d\n", len(gc.references))
+
 			a.mux.Unlock()
+			gc.mux.Unlock() // gc unlock
 		}
 
 		func (a *cgoAllocMap) IsEmpty() bool {
@@ -1266,12 +1290,12 @@ var (
 		}
 
 		func (a *cgoAllocMap) Free() {
-			a.mux.Lock()
-			for ptr := range a.m {
-				C.free(ptr)
-				delete(a.m, ptr)
-			}
-			a.mux.Unlock()
+			// a.mux.Lock()
+			// for ptr := range a.m {
+			// 	C.free(ptr)
+			// 	delete(a.m, ptr)
+			// }
+			// a.mux.Unlock()
 		}`,
 	}
 )
