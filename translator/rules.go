@@ -150,7 +150,7 @@ const (
 type Tips []Tip
 
 var builtinRules = map[string]RuleSpec{
-	"snakecase":  RuleSpec{Action: ActionReplace, From: "_([^_]+)", To: "$1", Transform: TransformTitle},
+	"snakecase":  RuleSpec{Action: ActionReplace, From: "^_([^_]+)", To: "$1", Transform: TransformTitle},
 	"doc.file":   RuleSpec{Action: ActionDocument, To: "$path:$line"},
 	"doc.google": RuleSpec{Action: ActionDocument, To: "https://google.com/search?q=$file+$name"},
 }
