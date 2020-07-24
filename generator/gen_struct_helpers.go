@@ -565,6 +565,8 @@ func (gen *Generator) getPassRefSource(goStructName []byte, cStructName string, 
 		fmt.Fprintf(buf, "var c%s_allocs *cgoAllocMap\n", m.Name)
 		fmt.Fprintf(buf, "ref%2x.%s, c%s_allocs  = %s\n", crc, m.Name, m.Name, fromProxy)
 		fmt.Fprintf(buf, "allocs%2x.Borrow(c%s_allocs)\n", crc, m.Name)
+		// reset
+		fmt.Fprintf(buf, "%s = *new(%s)\n", goName, goSpec)
 		if nillable {
 			fmt.Fprintf(buf, "}\n\n")
 		} else {
