@@ -744,10 +744,9 @@ func (gen *Generator) getPackHelper(memTip tl.Tip, goSpec tl.GoTypeSpec, cgoSpec
 	case isPlain:
 		packPlain(buf1, cgoSpec, goSpec.PlainType(), goSpec.Pointers, level)
 	case isSlice:
-		switch {
-		case goSpec.Slices == 1 && goSpec.Pointers == 0 && cgoSpec.Pointers == 1:
+		if goSpec.Slices == 1 && goSpec.Pointers == 0 && cgoSpec.Pointers == 1 {
 			gen.packSliceEx(buf1, buf2, cgoSpec, getSizeSpec(level+1), level)
-		default:
+		} else {
 			gen.packSlice(buf1, buf2, cgoSpec, getSizeSpec(level+1), level)
 			goSpec.Slices = 0
 		}
