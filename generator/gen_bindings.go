@@ -1240,7 +1240,13 @@ var (
 			m   map[unsafe.Pointer]struct{}
 		}
 
-		var cgoAllocsUnknown = new(cgoAllocMap) 
+		var cgoAllocsUnknown = new(cgoAllocMap)
+
+		func init() {
+			if gc.references == nil {
+				gc.references = make(map[unsafe.Pointer]*reference)
+			}
+		}
 
 		func (a *cgoAllocMap) Add(ptr unsafe.Pointer) {
 			a.mux.Lock()
