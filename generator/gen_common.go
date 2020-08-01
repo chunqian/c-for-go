@@ -69,6 +69,67 @@ func (gen *Generator) writeStructMembers(wr io.Writer, structName string, spec t
 	fmt.Fprintf(wr, "allocs%2x interface{}\n", crc)
 }
 
+func (gen *Generator) writeStructMembersEx(wr io.Writer, structName string, spec tl.CType) {
+	structSpec := spec.(*tl.CStructSpec)
+	ptrTipRx, typeTipRx, memTipRx := gen.tr.TipRxsForSpec(tl.TipScopeType, structName, structSpec)
+	const public = true
+	for i, member := range structSpec.Members {
+		ptrTip := ptrTipRx.TipAt(i)
+		if !ptrTip.IsValid() {
+			ptrTip = tl.TipPtrArr
+		}
+		typeTip := typeTipRx.TipAt(i)
+		if !typeTip.IsValid() {
+			typeTip = tl.TipTypeNamed
+		}
+		memTip := memTipRx.TipAt(i)
+		if !memTip.IsValid() {
+			memTip = gen.MemTipOf(member)
+		}
+		if memTip == tl.TipMemRaw {
+			ptrTip = tl.TipPtrSRef
+		}
+		declName := checkName(gen.tr.TransformName(tl.TargetType, member.Name, public))
+		switch member.Spec.Kind() {
+		case tl.TypeKind:
+			if member.Spec.GetPointers() >= 1 {
+				ptrTip = tl.TipPtrSRef
+				// typeTip = tl.TipPtrSRef
+			}
+			goSpec := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip)
+			fmt.Fprintf(wr, "%s %s", declName, goSpec)
+		case tl.StructKind, tl.OpaqueStructKind, tl.UnionKind:
+			if !gen.tr.IsAcceptableName(tl.TargetType, member.Spec.GetBase()) {
+				continue
+			}
+
+			member.Spec.SetRaw("C." + member.Spec.GetTag())
+			ptrTip = tl.TipPtrSRef
+			// typeTip = tl.TipPtrSRef
+			goSpec := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip)
+			fmt.Fprintf(wr, "%s %s", declName, goSpec)
+		case tl.EnumKind:
+			if !gen.tr.IsAcceptableName(tl.TargetType, member.Spec.GetBase()) {
+				continue
+			}
+			typeRef := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip).String()
+			fmt.Fprintf(wr, "%s %s", declName, typeRef)
+		case tl.FunctionKind:
+			gen.writeFunctionAsArg(wr, member, ptrTip, typeTip, public)
+		}
+		writeSpace(wr, 1)
+	}
+
+	if memTipRx.Self() == tl.TipMemRaw {
+		return
+	}
+
+	cgoSpec := gen.tr.CGoSpec(structSpec, false)
+	if len(cgoSpec.Base) == 0 {
+		return
+	}
+}
+
 func (gen *Generator) writeInstanceObjectParam(wr io.Writer, funcName string, funcSpec tl.CType) {
 	spec := funcSpec.(*tl.CFunctionSpec)
 	ptrTipSpecRx, _ := gen.tr.PtrTipRx(tl.TipScopeFunction, funcName)

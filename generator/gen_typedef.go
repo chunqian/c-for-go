@@ -123,9 +123,17 @@ func (gen *Generator) writeStructTypedef(wr io.Writer, decl *tl.CDecl, raw bool,
 	gen.writeStructMembers(wr, cName, decl.Spec)
 	writeEndStruct(wr)
 	writeSpace(wr, 1)
+
 	for _, helper := range gen.getStructHelpers(goName, cName, decl.Spec) {
 		gen.submitHelper(helper)
 	}
+
+	fmt.Fprintf(wr, "type %s struct {", unexportName(string(goName)))
+	writeSpace(wr, 1)
+	gen.submitHelper(cgoAllocMap)
+	gen.writeStructMembersEx(wr, cName, decl.Spec)
+	writeEndStruct(wr)
+	writeSpace(wr, 1)
 }
 
 func (gen *Generator) writeUnionTypedef(wr io.Writer, decl *tl.CDecl) {
