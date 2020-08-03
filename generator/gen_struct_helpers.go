@@ -147,8 +147,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	    return (*%s)(unsafe.Pointer(x.ref%2x))
 	}`, crc, unexportName(string(goStructName)), crc, unexportName(string(goStructName)), crc)
 	helpers = append(helpers, &Helper{
-	    Name:        fmt.Sprintf("%s.Self", goStructName),
-	    Description: "Self mapping struct value.",
+	    Name:        fmt.Sprintf("%s.Convert", goStructName),
+	    Description: "Convert struct for mapping C struct unanimous.",
 	    Source:      buf.String(),
 	})
 
