@@ -138,7 +138,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	})
 
 	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) Self() *%s", goStructName, unexportName(string(goStructName)))
+	fmt.Fprintf(buf, "func (x *%s) Convert() *%s", goStructName, unexportName(string(goStructName)))
 	fmt.Fprintf(buf, `{
 	    if x.ref%2x != nil {
 	        return (*%s)(unsafe.Pointer(x.ref%2x))
@@ -408,18 +408,18 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 				return s`, cgoSpecP1O0, unexport, unexport, unexport, m.Name, m.Name, goSpecName, cgoSpecP1O0)
 			fmt.Fprintf(buf, "}\n")
 
-		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
-			fmt.Fprintf(buf, `{
-				if s.Ref() == nil { s.PassRef() }
-				if %s.Ref() == nil {
-					__ret, _ := %s.PassRef()
-					s.Ref().%s = *__ret
-				} else {
-					s.Ref().%s = *%s.Ref()
-				}
-				return s
-			}`, m.Name, m.Name, m.Name, m.Name, m.Name)
+		// case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
+		// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
+		// 	fmt.Fprintf(buf, `{
+		// 		if s.Ref() == nil { s.PassRef() }
+		// 		if %s.Ref() == nil {
+		// 			__ret, _ := %s.PassRef()
+		// 			s.Ref().%s = *__ret
+		// 		} else {
+		// 			s.Ref().%s = *%s.Ref()
+		// 		}
+		// 		return s
+		// 	}`, m.Name, m.Name, m.Name, m.Name, m.Name)
 
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
 			goSpec.Slices = 0
@@ -479,7 +479,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 	fmt.Fprintf(buf, "}\n")
 		}
 
-		if goSpec.Kind != tl.PlainTypeKind {
+		if goSpec.Kind != tl.PlainTypeKind && (len(goSpec.OuterArr.Sizes()) == 1 || goSpec.Slices > 0) {
 			helpers = append(helpers, &Helper{
 				Name:        fmt.Sprintf("%s.Set%s", goStructName, goName),
 				Description: fmt.Sprintf("Set%s update C object and binding struct", goName),
