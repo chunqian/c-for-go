@@ -33,7 +33,9 @@ func (gen *Generator) writeStructMembers(wr io.Writer, structName string, spec t
 		if memTip == tl.TipMemRaw {
 			ptrTip = tl.TipPtrSRef
 		}
-		declName := checkName(gen.tr.TransformName(tl.TargetType, member.Name, public))
+		// declName := checkName(gen.tr.TransformName(tl.TargetType, member.Name, public))
+		declNameT := checkName(gen.tr.TransformName(tl.TargetType, member.Name, public))
+		declName := "g" + string(declNameT)
 		switch member.Spec.Kind() {
 		case tl.TypeKind:
 			goSpec := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip)
