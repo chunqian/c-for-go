@@ -242,6 +242,32 @@ func notNilBarrier(buf io.Writer, name string) {
 
 func (gen *Generator) unpackSlice(buf1 io.Writer, buf2 *reverseBuffer, cgoSpec tl.CGoSpec, level uint8, isArg bool) {
 	uplevel := level - 1
+
+	if cgoSpec.Base == "C.char" && cgoSpec.Pointers == 2 {
+		notNilBarrier(buf1, "x")
+		writeSpace(buf1, 1)
+
+		levelSpec := cgoSpec.SpecAtLevel(1)
+		h := gen.getAllocMemoryHelper(levelSpec)
+		gen.submitHelper(h)
+		gen.submitHelper(sizeOfPtr)
+		gen.submitHelper(cgoAllocMap)
+
+		fmt.Fprintf(buf1, `allocs = new(cgoAllocMap)
+
+		len0 := len(x)
+		h0 := make([]*C.char, len0)
+		for i0 := range x {
+			b0 := []byte(x[i0] + "\x00")
+			cstr := C.CBytes(b0)
+			h0[i0] = (*C.char)(cstr)
+		}
+		unpacked = (**C.char)(unsafe.Pointer(&h0[0]))
+		`)
+
+		buf2.Linef("return\n")
+		return
+	}
 	if level == 0 {
 		notNilBarrier(buf1, "x")
 		writeSpace(buf1, 1)
@@ -398,6 +424,9 @@ func (gen *Generator) getUnpackHelper(goSpec tl.GoTypeSpec, cgoSpec tl.CGoSpec, 
 		unpackPlainSlice(buf1, cgoSpec, level)
 	case isPlain:
 		unpackPlain(buf1, goSpec, cgoSpec, level)
+	case isSlice && cgoSpec.Base == "C.char" && cgoSpec.Pointers == 2:
+		gen.submitHelper(sliceHeader)
+		gen.unpackSlice(buf1, buf2, cgoSpec, level, isArg)
 	case isSlice:
 		gen.submitHelper(sliceHeader)
 		gen.unpackSlice(buf1, buf2, cgoSpec, level, isArg)

@@ -211,9 +211,9 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	    return (*%s)(unsafe.Pointer(x.ref%2x))
 	}`, crc, unexportName(string(goStructName)), crc, unexportName(string(goStructName)), crc)
 	helpers = append(helpers, &Helper{
-	    Name:        fmt.Sprintf("%s.Convert", goStructName),
-	    Description: "Convert struct for mapping C struct unanimous.",
-	    Source:      buf.String(),
+		Name:        fmt.Sprintf("%s.Convert", goStructName),
+		Description: "Convert struct for mapping C struct unanimous.",
+		Source:      buf.String(),
 	})
 
 	// buf.Reset()
@@ -418,14 +418,14 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			fmt.Fprintf(buf, "\t%s\n", toProxy)
 			fmt.Fprintf(buf, "\treturn ret\n")
 			fmt.Fprintf(buf, "}\n")
-		// case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
-		// 	fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
-		// 	toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
-		// 	fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
-		// 	fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
-		// 	fmt.Fprintf(buf, "\t%s\n", toProxy)
-		// 	fmt.Fprintf(buf, "\treturn ret\n")
-		// 	fmt.Fprintf(buf, "}\n")
+			// case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
+			// 	fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
+			// 	toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
+			// 	fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
+			// 	fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
+			// 	fmt.Fprintf(buf, "\t%s\n", toProxy)
+			// 	fmt.Fprintf(buf, "\treturn ret\n")
+			// 	fmt.Fprintf(buf, "}\n")
 		}
 
 		if goSpec.Kind != tl.PlainTypeKind || goSpec.Slices > 0 {
@@ -486,11 +486,14 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 	}`, m.Name, m.Name, m.Name, m.Name, m.Name)
 
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
-			goSpec.Slices = 0
-			goSpecName = fmt.Sprintf("%s", goSpec)
+			goSpecS0 := goSpec
+			goSpecS0.Slices = 0
+
+			// goSpec.Slices = 0
+			goSpecName = fmt.Sprintf("%s", goSpecS0)
 			unexport := unexportName(goSpecName)
 			// sizeConst := "sizeOfPtr"
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpec, goStructName)
+			fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpecS0, goStructName)
 			fmt.Fprintf(buf, `
 				if s.Ref() == nil { s.PassRef() }
 
@@ -511,11 +514,14 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			cgoSpecP1 := cgoSpec
 			cgoSpecP1.Pointers -= 1
 
-			goSpec.Slices = 0
-			goSpecName = fmt.Sprintf("%s", goSpec)
+			goSpecS0 := goSpec
+			goSpecS0.Slices = 0
+
+			// goSpec.Slices = 0
+			goSpecName = fmt.Sprintf("%s", goSpecS0)
 			unexport := unexportName(goSpecName)
 			// sizeConst := "sizeOfPtr"
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%sRow int32, %sColumn int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, m.Name, unexportName(goSpecName), goSpec, goStructName)
+			fmt.Fprintf(buf, "func (s *%s) Set%s(%sRow int32, %sColumn int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, m.Name, unexportName(goSpecName), goSpecS0, goStructName)
 			fmt.Fprintf(buf, `
 				if s.Ref() == nil { s.PassRef() }
 
@@ -534,16 +540,17 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 				return s`, cgoSpecP1, unexport, unexport, unexport, m.Name, cgoSpec, m.Name, cgoSpecP1, m.Name, goSpecName, cgoSpecP1)
 			fmt.Fprintf(buf, "}\n")
 
-		// case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
-		// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s) {\n", goStructName, goName, m.Name, goSpec, goStructName)
-		// 	fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
-		// 	fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
-		// 	fmt.Fprintf(buf, "\ts.Ref().%s = %s\n", m.Name, fromProxy)
-		// 	fmt.Fprintf(buf, "return s\n")
-		// 	fmt.Fprintf(buf, "}\n")
+			// case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
+			// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s) {\n", goStructName, goName, m.Name, goSpec, goStructName)
+			// 	fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
+			// 	fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
+			// 	fmt.Fprintf(buf, "\ts.Ref().%s = %s\n", m.Name, fromProxy)
+			// 	fmt.Fprintf(buf, "return s\n")
+			// 	fmt.Fprintf(buf, "}\n")
 		}
 
 		if goSpec.Kind != tl.PlainTypeKind && (len(goSpec.OuterArr.Sizes()) == 1 || goSpec.Slices > 0) {
+			// q.Q(goSpec)
 			helpers = append(helpers, &Helper{
 				Name:        fmt.Sprintf("%s.Set%s", goStructName, goName),
 				Description: fmt.Sprintf("Set%s update C object and binding struct", goName),
