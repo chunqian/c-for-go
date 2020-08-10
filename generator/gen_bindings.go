@@ -35,6 +35,9 @@ var fromGoHelperMap = map[tl.GoTypeSpec]getHelperFunc{
 	tl.StringSpec:  (*Generator).getUnpackStringHelper,
 	tl.UStringSpec: (*Generator).getUnpackStringHelper,
 }
+var fromGoHelperMapEx = map[tl.GoTypeSpec]getHelperFunc{
+	tl.StringSpec: (*Generator).getUnpackMemoryStringHelper,
+}
 
 var toGoHelperMap = map[tl.GoTypeSpec]getHelperFunc{
 	tl.StringSpec:  (*Generator).getPackStringHelper,
@@ -174,6 +177,27 @@ func (gen *Generator) unpackObj(buf io.Writer, goSpec tl.GoTypeSpec, cgoSpec tl.
 		helper := getHelper(gen, cgoSpec)
 		fmt.Fprintf(buf, "v%d[i%d], _ = %s(%sx%s)\n",
 			uplevel, uplevel, helper.Name, ptrs(goSpec.Pointers), indices)
+		return helper
+	}
+	if goSpec.Pointers == 0 {
+		fmt.Fprintf(buf, "allocs%d := new(cgoAllocMap)\n", uplevel)
+		fmt.Fprintf(buf, "v%d[i%d], allocs%d = x%s.PassValue()\n", uplevel, uplevel, uplevel, indices)
+		fmt.Fprintf(buf, "allocs.Borrow(allocs%d)\n", uplevel)
+		return nil
+	}
+	fmt.Fprintf(buf, "v%d[i%d], _ = x%s.PassRef()\n", uplevel, uplevel, indices)
+	return nil
+}
+
+func (gen *Generator) unpackObjEx(buf io.Writer, goSpec tl.GoTypeSpec, cgoSpec tl.CGoSpec, level uint8) *Helper {
+	uplevel := level - 1
+	indices := genIndices("i", level)
+	if getHelper, ok := fromGoHelperMapEx[goSpec]; ok {
+		helper := getHelper(gen, cgoSpec)
+		fmt.Fprintf(buf, "var allocs%d *cgoAllocMap\n", uplevel)
+		fmt.Fprintf(buf, "v%d[i%d], allocs%d = %s(%sx%s)\n",
+			uplevel, uplevel, uplevel, helper.Name, ptrs(goSpec.Pointers), indices)
+		fmt.Fprintf(buf, "allocs.Borrow(allocs%d)\n", uplevel)
 		return helper
 	}
 	if goSpec.Pointers == 0 {
@@ -375,6 +399,26 @@ func (gen *Generator) getUnpackStringHelper(cgoSpec tl.CGoSpec) *Helper {
 	}
 }
 
+func (gen *Generator) getUnpackMemoryStringHelper(cgoSpec tl.CGoSpec) *Helper {
+	cgoSpec = tl.CGoSpec{
+		Pointers: 1,
+		Base:     cgoSpec.Base,
+	}
+	name := "unpackMemory" + gen.getTypedHelperName("string", cgoSpec)
+	return &Helper{
+		Name:        name,
+		Description: fmt.Sprintf("%s represents the data from Go string as %s and avoids copying.", name, cgoSpec),
+		Source: fmt.Sprintf(`func %s(str string) (%s, *cgoAllocMap) {
+		    ptr0 := C.CString(str)
+		    mem0 := unsafe.Pointer(ptr0)
+		    allocs0 := new(cgoAllocMap)
+		    allocs0.Add(mem0)
+		    return ptr0, allocs0
+		}`, name, cgoSpec),
+		Requires: []*Helper{stringHeader, cgoAllocMap},
+	}
+}
+
 func goSpecArg(goSpec tl.GoTypeSpec, isArg bool) string {
 	if !isArg {
 		return goSpec.String()
@@ -424,9 +468,13 @@ func (gen *Generator) getUnpackHelper(goSpec tl.GoTypeSpec, cgoSpec tl.CGoSpec, 
 		unpackPlainSlice(buf1, cgoSpec, level)
 	case isPlain:
 		unpackPlain(buf1, goSpec, cgoSpec, level)
-	// case isSlice && cgoSpec.Base == "C.char" && cgoSpec.Pointers == 2:
-	// 	gen.submitHelper(sliceHeader)
-	// 	gen.unpackSlice(buf1, buf2, cgoSpec, level, isArg)
+	case isSlice && cgoSpec.Base == "C.char" && cgoSpec.Pointers == 2:
+		gen.submitHelper(sliceHeader)
+		gen.unpackSlice(buf1, buf2, cgoSpec, level, isArg)
+		goSpec.Slices = 0
+		if helper := gen.unpackObjEx(buf1, goSpec, cgoSpec, level+1); helper != nil {
+			h.Requires = append(h.Requires, helper)
+		}
 	case isSlice:
 		gen.submitHelper(sliceHeader)
 		gen.unpackSlice(buf1, buf2, cgoSpec, level, isArg)
