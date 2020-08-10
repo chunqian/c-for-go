@@ -137,7 +137,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 					fmt.Printf("%s memory: %%p free\n", ptr)
 					C.free(ptr)
 					delete(gc.references, ptr)
-					fmt.Printf("del reference, still exist: %%d\n", len(gc.references))
+					fmt.Printf("reference delete from gc collector, gc collector count: %%d\n", len(gc.references))
 				}
 			}
 		}

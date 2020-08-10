@@ -1341,7 +1341,7 @@ var (
 			}
 			gc.references[ptr] = &reference{}
 			gc.references[ptr].count += 1
-			fmt.Printf("add reference, still exist: %d\n", len(gc.references))
+			fmt.Printf("reference add into gc collector, gc collector count: %d\n", len(gc.references))
 
 			a.mux.Unlock()
 			gc.mux.Unlock() // gc unlock
