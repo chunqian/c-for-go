@@ -65,7 +65,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	cgoSpec := gen.tr.CGoSpec(spec, true)
 
 	buf := new(bytes.Buffer)
-	fmt.Fprintf(buf, "func (x *%s) Ref() *%s", goStructName, cgoSpec)
+	fmt.Fprintf(buf, "func (x *%s) ref() *%s", goStructName, cgoSpec)
 	fmt.Fprintf(buf, `{
 		if x == nil {
 			return nil
@@ -73,8 +73,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		return x.ref%2x
 	}`, crc)
 	helpers = append(helpers, &Helper{
-		Name:        fmt.Sprintf("%s.Ref", goStructName),
-		Description: "Ref returns the underlying reference to C object or nil if struct is nil.",
+		Name:        fmt.Sprintf("%s.ref", goStructName),
+		Description: "ref returns the underlying reference to C object or nil if struct is nil.",
 		Source:      buf.String(),
 	})
 
@@ -281,12 +281,12 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 			fmt.Fprintf(buf, "func (s *%s) Get%s(%sIndex int32) *%s", goStructName, goName, m.Name, goSpecS0P0Out0)
 			fmt.Fprintf(buf, `{
-				if s.Ref() == nil {
+				if s.ref() == nil {
 					s.PassRef()
 				}
 				var ret *%s
 				// c struct pointer offset
-				ptr0 := &s.Ref().%s
+				ptr0 := &s.ref().%s
 				ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue)))
 				ret = New%sRef(unsafe.Pointer(ptr1))
 
@@ -298,12 +298,12 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 		// 	fmt.Fprintf(buf, "func (s *%s) Get%s() %s", goStructName, goName, goSpec)
 		// 	fmt.Fprintf(buf, `{
-		// 		if s.Ref() == nil {
+		// 		if s.ref() == nil {
 		// 			s.PassRef()
 		// 		}
 		// 		var ret %s
 		// 		// c struct pointer offset
-		// 		ptr0 := &s.Ref().%s
+		// 		ptr0 := &s.ref().%s
 		// 		for i0 := range ret {
 		// 			ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(sizeOf%sValue)))
 		// 			ret[i0] = *New%sRef(unsafe.Pointer(ptr1))
@@ -312,8 +312,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 	}`, goSpec, m.Name, cgoSpec.Base, goSpecS0P0Out0, goSpecS0P0Out0)
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
 			fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
-			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
-			fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
+			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.ref()."+m.Name, goSpec, cgoSpec)
+			fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
 			fmt.Fprintf(buf, "\t%s\n", toProxy)
 			fmt.Fprintf(buf, "\treturn ret\n")
@@ -325,12 +325,12 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 			fmt.Fprintf(buf, "func (s *%s) Get%s(%sIndex int32) *%s", goStructName, goName, m.Name, goSpecS0P0)
 			fmt.Fprintf(buf, `{
-				if s.Ref() == nil {
+				if s.ref() == nil {
 					s.PassRef()
 				}
 				var ret *%s
 				// c struct pointer offset
-				ptr0 := s.Ref().%s
+				ptr0 := s.ref().%s
 				ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue)))
 
 				ret = New%sRef(unsafe.Pointer(ptr1))
@@ -340,8 +340,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 	goSpec.Pointers -= 1
 		// 	cgoSpec.Pointers -= 1
 		// 	fmt.Fprintf(buf, "func (s *%s) Get%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
-		// 	toProxy, _ := gen.proxyValueToGo(memTip, "ret", "s.Ref()."+m.Name, goSpec, cgoSpec)
-		// 	fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
+		// 	toProxy, _ := gen.proxyValueToGo(memTip, "ret", "s.ref()."+m.Name, goSpec, cgoSpec)
+		// 	fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
 		// 	fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
 		// 	fmt.Fprintf(buf, "\tret = make(%s, %sCount)\n", goSpec, m.Name)
 		// 	fmt.Fprintf(buf, "\t%s\n", toProxy)
@@ -364,11 +364,11 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			cgoSpecP0.Pointers -= 3
 			fmt.Fprintf(buf, "func (s *%s) Get%s(%sRow int32, %sColumn int32) *%s", goStructName, goName, m.Name, m.Name, goSpecS0P0)
 			fmt.Fprintf(buf, `{
-				if s.Ref() == nil { s.PassRef() }
+				if s.ref() == nil { s.PassRef() }
 
 				row, column := %sRow, %sColumn
 				var ret *%s
-				ptr0 := s.Ref().%s
+				ptr0 := s.ref().%s
 				ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(row)*uintptr(sizeOfPtr)))
 				ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(column)*uintptr(sizeOf%sValue)))
 				ret = New%sRef(unsafe.Pointer(ptr2))
@@ -393,14 +393,14 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 	cgoSpecP0.Pointers -= 3
 		// 	fmt.Fprintf(buf, "func (s *%s) Get%s(%sRow int32, %sColumn int32) %s", goStructName, goName, m.Name, m.Name, goSpecS2P0)
 		// 	fmt.Fprintf(buf, `{
-		// 		if s.Ref() == nil { s.PassRef() }
+		// 		if s.ref() == nil { s.PassRef() }
 
 		// 		row, column := %sRow, %sColumn
 		// 		ret := make(%s, row)
 		// 		for i := range ret {
 		// 			ret[i] = make(%s, column)
 		// 		}
-		// 		ptr0 := s.Ref().%s
+		// 		ptr0 := s.ref().%s
 		// 		for i0 := range ret {
 		// 			ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(sizeOfPtr)))
 		// 			for i1 := range ret[i0] {
@@ -413,15 +413,15 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices > 0:
 			fmt.Fprintf(buf, "func (s *%s) Get%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", m.Name, goSpec, cgoSpec)
-			fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
+			fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
 			fmt.Fprintf(buf, "\t%s\n", toProxy)
 			fmt.Fprintf(buf, "\treturn ret\n")
 			fmt.Fprintf(buf, "}\n")
 			// case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
 			// 	fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
-			// 	toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.Ref()."+m.Name, goSpec, cgoSpec)
-			// 	fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
+			// 	toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.ref()."+m.Name, goSpec, cgoSpec)
+			// 	fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
 			// 	fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
 			// 	fmt.Fprintf(buf, "\t%s\n", toProxy)
 			// 	fmt.Fprintf(buf, "\treturn ret\n")
@@ -457,15 +457,15 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			unexport := unexportName(goSpecName)
 			fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpecS0P0O0, goStructName)
 			fmt.Fprintf(buf, `
-				if s.Ref() == nil { s.PassRef() }
+				if s.ref() == nil { s.PassRef() }
 
 				var __ret %s
-				if %s.Ref() == nil {
+				if %s.ref() == nil {
 					__ret, _ = %s.PassRef()
 				} else {
-					__ret = %s.Ref()
+					__ret = %s.ref()
 				}
-				ptr0 := &s.Ref().%s
+				ptr0 := &s.ref().%s
 				ptr := unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue))
 
 				*(%s)(ptr) = *__ret
@@ -475,12 +475,12 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
 		// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
 		// 	fmt.Fprintf(buf, `{
-		// 		if s.Ref() == nil { s.PassRef() }
-		// 		if %s.Ref() == nil {
+		// 		if s.ref() == nil { s.PassRef() }
+		// 		if %s.ref() == nil {
 		// 			__ret, _ := %s.PassRef()
-		// 			s.Ref().%s = *__ret
+		// 			s.ref().%s = *__ret
 		// 		} else {
-		// 			s.Ref().%s = *%s.Ref()
+		// 			s.ref().%s = *%s.ref()
 		// 		}
 		// 		return s
 		// 	}`, m.Name, m.Name, m.Name, m.Name, m.Name)
@@ -495,15 +495,15 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			// sizeConst := "sizeOfPtr"
 			fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpecS0, goStructName)
 			fmt.Fprintf(buf, `
-				if s.Ref() == nil { s.PassRef() }
+				if s.ref() == nil { s.PassRef() }
 
 				var __ret %s
-				if %s.Ref() == nil {
+				if %s.ref() == nil {
 					__ret, _ = %s.PassRef()
 				} else {
-					__ret = %s.Ref()
+					__ret = %s.ref()
 				}
-				ptr0 := s.Ref().%s
+				ptr0 := s.ref().%s
 				ptr := unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue))
 
 				*(%s)(ptr) = *__ret
@@ -523,16 +523,16 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			// sizeConst := "sizeOfPtr"
 			fmt.Fprintf(buf, "func (s *%s) Set%s(%sRow int32, %sColumn int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, m.Name, unexportName(goSpecName), goSpecS0, goStructName)
 			fmt.Fprintf(buf, `
-				if s.Ref() == nil { s.PassRef() }
+				if s.ref() == nil { s.PassRef() }
 
 				var __ret %s
-				if %s.Ref() == nil {
+				if %s.ref() == nil {
 					__ret, _ = %s.PassRef()
 				} else {
-					__ret = %s.Ref()
+					__ret = %s.ref()
 				}
 
-				ptr0 := s.Ref().%s
+				ptr0 := s.ref().%s
 				ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sRow)*uintptr(sizeOfPtr)))
 				ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(%sColumn)*uintptr(sizeOf%sValue)))
 				*(%s)(ptr2) = *__ret
@@ -543,8 +543,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			// case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
 			// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s) {\n", goStructName, goName, m.Name, goSpec, goStructName)
 			// 	fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
-			// 	fmt.Fprintf(buf, "\tif s.Ref() == nil { s.PassRef() }\n")
-			// 	fmt.Fprintf(buf, "\ts.Ref().%s = %s\n", m.Name, fromProxy)
+			// 	fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
+			// 	fmt.Fprintf(buf, "\ts.ref().%s = %s\n", m.Name, fromProxy)
 			// 	fmt.Fprintf(buf, "return s\n")
 			// 	fmt.Fprintf(buf, "}\n")
 		}
