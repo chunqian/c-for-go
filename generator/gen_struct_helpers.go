@@ -202,6 +202,20 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	})
 
 	buf.Reset()
+	fmt.Fprintf(buf, "func (x *%s) Offset(index int32) *%s", goStructName, goStructName)
+	fmt.Fprintf(buf, `{
+	    ptr0, _ := x.PassRef()
+	    ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(index)*uintptr(sizeOf%sValue)))
+	    ret := New%sRef(unsafe.Pointer(ptr1))
+	    return ret
+	}`, cgoSpec, spec.GetTag(), goStructName)
+	helpers = append(helpers, &Helper{
+		Name:        fmt.Sprintf("%s.Offset", goStructName),
+		Description: "Offset reads Go data structure out from plain C format.",
+		Source:      buf.String(),
+	})
+
+	buf.Reset()
 	fmt.Fprintf(buf, "func (x *%s) Convert() *%s", goStructName, unexportName(string(goStructName)))
 	fmt.Fprintf(buf, `{
 	    if x.ref%2x != nil {

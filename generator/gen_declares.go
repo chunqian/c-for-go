@@ -75,7 +75,11 @@ func (gen *Generator) writeFunctionDeclaration(wr io.Writer, decl *tl.CDecl,
 	var returnRef string
 	spec := decl.Spec.(*tl.CFunctionSpec)
 	if spec.Return != nil {
-		returnRef = gen.tr.TranslateSpec(spec.Return, ptrTip, typeTip).String()
+		ret := gen.tr.TranslateSpec(spec.Return, ptrTip, typeTip)
+		// if ret.Slices > 0 {
+		// 	ret.Pointers += 1
+		// }
+		returnRef = ret.String()
 	}
 	cName, _ := getName(decl)
 	goName := checkName(gen.tr.TransformName(tl.TargetFunction, cName, public))

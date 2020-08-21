@@ -1088,7 +1088,7 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 			        __v[i0] = make([]byte, %sLength(%s))
 			        for i1 := range __v[i0] {
 			            ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(i1)*uintptr(sizeOfPlainValue)))
-			            __v[i0][i1] = *(%s)(unsafe.Pointer(ptr2))
+			            __v[i0][i1] = (%s)(unsafe.Pointer(ptr2))
 			        }
 				}`, cgoSpec.Base, goSpec, cgoSpec, cgoSpecP1, unexportName(decl.Name), buf.String(), cgoSpecP1, goSpecS0P1)
 		} else {
@@ -1099,10 +1099,34 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 		// proxy = fmt.Sprintf("var %s %s\n%s(%s%s, %s)", varName, goSpec, helper.Name, ref, varName, ptrName)
 		// return proxy, helper.Nillable
 		return
+	// case isPlain && goSpec.Slices != 0: // ex: []byte
+	// 	specStr := ptrs(goSpec.Pointers) + goSpec.PlainType()
+	// 	proxy = fmt.Sprintf("%s := (*(*[%s]%s)(unsafe.Pointer(%s)))[:0]",
+	// 		varName, gen.maxMem, specStr, ptrName)
+	// 	return
 	case isPlain && goSpec.Slices != 0: // ex: []byte
-		specStr := ptrs(goSpec.Pointers) + goSpec.PlainType()
-		proxy = fmt.Sprintf("%s := (*(*[%s]%s)(unsafe.Pointer(%s)))[:0]",
-			varName, gen.maxMem, specStr, ptrName)
+		goSpecS0P1 := goSpec
+		goSpecS0P1.Slices -= 1
+		goSpecS0P1.Pointers += 1
+
+		if goSpec.Base == "byte" {
+			buf := new(bytes.Buffer)
+			gen.writeFunctionParamsEx(buf, "", decl.Spec)
+
+			proxy = fmt.Sprintf(`
+			    const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
+			    // completion of the function
+			    __v := make([]byte, %sLength(%s))
+			    for i0 := range __v {
+			        ptr0 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(__ret)) + uintptr(i0)*uintptr(sizeOfPlainValue)))
+			        __v[i0] = (%s)(unsafe.Pointer(ptr0))
+				}`, cgoSpec.Base, unexportName(decl.Name), buf.String(), cgoSpec, goSpecS0P1)
+		} else {
+			specStr := ptrs(goSpec.Pointers) + goSpec.PlainType()
+			proxy = fmt.Sprintf("%s := (*(*[%s]%s)(unsafe.Pointer(%s)))[:0]",
+				varName, gen.maxMem, specStr, ptrName)
+		} 
+
 		return
 	case isPlain: // ex: byte, [4]byte
 		if (goSpec.Kind == tl.PlainTypeKind || goSpec.Kind == tl.EnumKind) &&
