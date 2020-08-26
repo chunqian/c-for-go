@@ -1125,7 +1125,7 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 			specStr := ptrs(goSpec.Pointers) + goSpec.PlainType()
 			proxy = fmt.Sprintf("%s := (*(*[%s]%s)(unsafe.Pointer(%s)))[:0]",
 				varName, gen.maxMem, specStr, ptrName)
-		} 
+		}
 
 		return
 	case isPlain: // ex: byte, [4]byte
@@ -1279,13 +1279,23 @@ func (gen *Generator) writeFunctionBody(wr io.Writer, decl *tl.CDecl) {
 		goSpec := gen.tr.TranslateSpec((*spec).Return, ptrTip, typeTip)
 		cgoSpec := gen.tr.CGoSpec((*spec).Return, false)
 
-		retProxy, nillable := gen.proxyRetToGo(wr, decl, memTipRx.Self(), "__v", "__ret", goSpec, cgoSpec)
-		if nillable {
-			fmt.Fprintln(wr, "if ret == nil {\nreturn nil\n}")
-		}
+		if goSpec.Base == "string" && goSpec.Pointers == 1 {
+			retProxy, nillable := gen.proxyRetToGo(wr, decl, memTipRx.Self(), "__v", "*__ret", goSpec, cgoSpec)
+			if nillable {
+				fmt.Fprintln(wr, "if ret == nil {\nreturn nil\n}")
+			}
 
-		fmt.Fprintln(wr, retProxy)
-		fmt.Fprintln(wr, "return __v")
+			fmt.Fprintln(wr, retProxy)
+			fmt.Fprintln(wr, "return &__v")
+		} else {
+			retProxy, nillable := gen.proxyRetToGo(wr, decl, memTipRx.Self(), "__v", "__ret", goSpec, cgoSpec)
+			if nillable {
+				fmt.Fprintln(wr, "if ret == nil {\nreturn nil\n}")
+			}
+
+			fmt.Fprintln(wr, retProxy)
+			fmt.Fprintln(wr, "return __v")
+		}
 	}
 	writeEndFuncBody(wr)
 }
