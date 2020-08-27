@@ -78,40 +78,40 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		Source:      buf.String(),
 	})
 
-	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) ResetRef()", goStructName)
-	fmt.Fprintf(buf, `{
-		if x == nil {
-			return
-		}
-		x.ref%2x = nil
-	}`, crc)
-	helpers = append(helpers, &Helper{
-		Name:        fmt.Sprintf("%s.ResetRef", goStructName),
-		Description: "ResetRef set ref nil if memory freed by CGo call C function.",
-		Source:      buf.String(),
-	})
+	// buf.Reset()
+	// fmt.Fprintf(buf, "func (x *%s) ResetRef()", goStructName)
+	// fmt.Fprintf(buf, `{
+	// 	if x == nil {
+	// 		return
+	// 	}
+	// 	x.ref%2x = nil
+	// }`, crc)
+	// helpers = append(helpers, &Helper{
+	// 	Name:        fmt.Sprintf("%s.ResetRef", goStructName),
+	// 	Description: "ResetRef set ref nil if memory freed by CGo call C function.",
+	// 	Source:      buf.String(),
+	// })
 
-	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) FreeRef()", goStructName)
-	fmt.Fprintf(buf, `{
-		if x != nil && x.allocs%2x != nil {
-			x.allocs%2x.(*cgoAllocMap).Free()
-			x.ref%2x = nil
-			return
-		}
-		if x != nil && x.ref%2x != nil && x.allocs%2x == nil {
-			C.free(unsafe.Pointer(x.ref%2x))
-			x.ref%2x = nil
-			return
-		}
-	}`, crc, crc, crc, crc, crc, crc, crc)
-	helpers = append(helpers, &Helper{
-		Name: fmt.Sprintf("%s.FreeRef", goStructName),
-		Description: "FreeRef invokes alloc map's free mechanism that cleanups any allocated memory using C free.\n" +
-			"Does nothing if struct is nil or has no allocation map.",
-		Source: buf.String(),
-	})
+	// buf.Reset()
+	// fmt.Fprintf(buf, "func (x *%s) FreeRef()", goStructName)
+	// fmt.Fprintf(buf, `{
+	// 	if x != nil && x.allocs%2x != nil {
+	// 		x.allocs%2x.(*cgoAllocMap).Free()
+	// 		x.ref%2x = nil
+	// 		return
+	// 	}
+	// 	if x != nil && x.ref%2x != nil && x.allocs%2x == nil {
+	// 		C.free(unsafe.Pointer(x.ref%2x))
+	// 		x.ref%2x = nil
+	// 		return
+	// 	}
+	// }`, crc, crc, crc, crc, crc, crc, crc)
+	// helpers = append(helpers, &Helper{
+	// 	Name: fmt.Sprintf("%s.FreeRef", goStructName),
+	// 	Description: "FreeRef invokes alloc map's free mechanism that cleanups any allocated memory using C free.\n" +
+	// 		"Does nothing if struct is nil or has no allocation map.",
+	// 	Source: buf.String(),
+	// })
 
 	buf.Reset()
 	fmt.Fprintf(buf, "func free%s(x *%s)", goStructName, goStructName)
@@ -202,7 +202,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	})
 
 	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) Offset(index int32) *%s", goStructName, goStructName)
+	fmt.Fprintf(buf, "func (x *%s) Index(index int32) *%s", goStructName, goStructName)
 	fmt.Fprintf(buf, `{
 	    ptr0, _ := x.PassRef()
 	    ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(index)*uintptr(sizeOf%sValue)))
@@ -210,8 +210,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	    return ret
 	}`, cgoSpec, spec.GetTag(), goStructName)
 	helpers = append(helpers, &Helper{
-		Name:        fmt.Sprintf("%s.Offset", goStructName),
-		Description: "Offset reads Go data structure out from plain C format.",
+		Name:        fmt.Sprintf("%s.Index", goStructName),
+		Description: "Index reads Go data structure out from plain C format.",
 		Source:      buf.String(),
 	})
 
