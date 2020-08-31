@@ -310,7 +310,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			goSpecS0P0Out0 := goSpec
 			goSpecS0P0Out0.OuterArr = ""
 
-			fmt.Fprintf(buf, "func (s *%s) Get%s(%sIndex int32) *%s", goStructName, goName, m.Name, goSpecS0P0Out0)
+			fmt.Fprintf(buf, "func (s *%s) %s(%sIndex int32) *%s", goStructName, goName, m.Name, goSpecS0P0Out0)
 			fmt.Fprintf(buf, `{
 				if s.ref() == nil {
 					s.PassRef()
@@ -342,7 +342,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 		return ret
 		// 	}`, goSpec, m.Name, cgoSpec.Base, goSpecS0P0Out0, goSpecS0P0Out0)
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
-			fmt.Fprintf(buf, "func (s *%s) Get%s() %s {\n", goStructName, goName, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) %s() %s {\n", goStructName, goName, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", "&s.ref()."+m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
@@ -354,7 +354,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			goSpecS0P0.Slices -= 1
 			goSpecS0P0.Pointers -= 1
 
-			fmt.Fprintf(buf, "func (s *%s) Get%s(%sIndex int32) *%s", goStructName, goName, m.Name, goSpecS0P0)
+			fmt.Fprintf(buf, "func (s *%s) %s(%sIndex int32) *%s", goStructName, goName, m.Name, goSpecS0P0)
 			fmt.Fprintf(buf, `{
 				if s.ref() == nil {
 					s.PassRef()
@@ -393,7 +393,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 			cgoSpecP0 := cgoSpec
 			cgoSpecP0.Pointers -= 3
-			fmt.Fprintf(buf, "func (s *%s) Get%s(%sRow int32, %sColumn int32) *%s", goStructName, goName, m.Name, m.Name, goSpecS0P0)
+			fmt.Fprintf(buf, "func (s *%s) %s(%sRow int32, %sColumn int32) *%s", goStructName, goName, m.Name, m.Name, goSpecS0P0)
 			fmt.Fprintf(buf, `{
 				if s.ref() == nil { s.PassRef() }
 
@@ -442,7 +442,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 		return ret
 		// 	}`, m.Name, m.Name, goSpecS2P0, goSpecS1P0, m.Name, cgoSpecP2, cgoSpecP1, m.Spec.GetBase(), m.Spec.GetBase())
 		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices > 0:
-			fmt.Fprintf(buf, "func (s *%s) Get%s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
+			fmt.Fprintf(buf, "func (s *%s) %s(%sCount int32) %s {\n", goStructName, goName, m.Name, goSpec)
 			toProxy, _ := gen.proxyValueToGo(memTip, "ret", m.Name, goSpec, cgoSpec)
 			fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
 			fmt.Fprintf(buf, "\tvar ret %s\n", goSpec)
@@ -461,133 +461,133 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 		if goSpec.Kind != tl.PlainTypeKind || goSpec.Slices > 0 {
 			helpers = append(helpers, &Helper{
-				Name:        fmt.Sprintf("%s.Get%s", goStructName, goName),
-				Description: fmt.Sprintf("Get%s returns a reference to C object within a struct", goName),
+				Name:        fmt.Sprintf("%s.%s", goStructName, goName),
+				Description: fmt.Sprintf("%s returns a reference to C object within a struct", goName),
 				Source:      buf.String(),
 			})
 			buf.Reset()
 		}
 
-		goSpecName := fmt.Sprintf("%s", goSpec)
-		arr = len(goSpec.OuterArr.Sizes()) > 0 || len(goSpec.InnerArr.Sizes()) > 0
-		if !arr {
-			goSpec.Pointers -= 1
-			cgoSpec.Pointers -= 1
-		}
+		// // Set* func
+		// goSpecName := fmt.Sprintf("%s", goSpec)
+		// arr = len(goSpec.OuterArr.Sizes()) > 0 || len(goSpec.InnerArr.Sizes()) > 0
+		// if !arr {
+		// 	goSpec.Pointers -= 1
+		// 	cgoSpec.Pointers -= 1
+		// }
 
-		// Set* func
-		switch {
-		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0 && goSpec.Pointers == 0 && len(goSpec.OuterArr.Sizes()) == 1:
-			goSpecS0P0O0 := goSpec
-			goSpecS0P0O0.OuterArr = ""
-			cgoSpecP1O0 := cgoSpec
-			cgoSpecP1O0.OuterArr = ""
-			cgoSpecP1O0.Pointers += 1
+		// switch {
+		// case goSpec.Kind == tl.StructKind && goSpec.Slices == 0 && goSpec.Pointers == 0 && len(goSpec.OuterArr.Sizes()) == 1:
+		// 	goSpecS0P0O0 := goSpec
+		// 	goSpecS0P0O0.OuterArr = ""
+		// 	cgoSpecP1O0 := cgoSpec
+		// 	cgoSpecP1O0.OuterArr = ""
+		// 	cgoSpecP1O0.Pointers += 1
 
-			goSpecName = fmt.Sprintf("%s", goSpecS0P0O0)
-			unexport := unexportName(goSpecName)
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpecS0P0O0, goStructName)
-			fmt.Fprintf(buf, `
-				if s.ref() == nil { s.PassRef() }
-
-				var __ret %s
-				if %s.ref() == nil {
-					__ret, _ = %s.PassRef()
-				} else {
-					__ret = %s.ref()
-				}
-				ptr0 := &s.ref().%s
-				ptr := unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue))
-
-				*(%s)(ptr) = *__ret
-				return s`, cgoSpecP1O0, unexport, unexport, unexport, m.Name, m.Name, goSpecName, cgoSpecP1O0)
-			fmt.Fprintf(buf, "}\n")
-
-		// case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
-		// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
-		// 	fmt.Fprintf(buf, `{
+		// 	goSpecName = fmt.Sprintf("%s", goSpecS0P0O0)
+		// 	unexport := unexportName(goSpecName)
+		// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpecS0P0O0, goStructName)
+		// 	fmt.Fprintf(buf, `
 		// 		if s.ref() == nil { s.PassRef() }
+
+		// 		var __ret %s
 		// 		if %s.ref() == nil {
-		// 			__ret, _ := %s.PassRef()
-		// 			s.ref().%s = *__ret
+		// 			__ret, _ = %s.PassRef()
 		// 		} else {
-		// 			s.ref().%s = *%s.ref()
+		// 			__ret = %s.ref()
 		// 		}
-		// 		return s
-		// 	}`, m.Name, m.Name, m.Name, m.Name, m.Name)
+		// 		ptr0 := &s.ref().%s
+		// 		ptr := unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue))
 
-		case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
-			goSpecS0 := goSpec
-			goSpecS0.Slices = 0
+		// 		*(%s)(ptr) = *__ret
+		// 		return s`, cgoSpecP1O0, unexport, unexport, unexport, m.Name, m.Name, goSpecName, cgoSpecP1O0)
+		// 	fmt.Fprintf(buf, "}\n")
 
-			// goSpec.Slices = 0
-			goSpecName = fmt.Sprintf("%s", goSpecS0)
-			unexport := unexportName(goSpecName)
-			// sizeConst := "sizeOfPtr"
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpecS0, goStructName)
-			fmt.Fprintf(buf, `
-				if s.ref() == nil { s.PassRef() }
+		// // case goSpec.Kind == tl.StructKind && goSpec.Slices == 0:
+		// // 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s)", goStructName, goName, m.Name, goSpecName, goStructName)
+		// // 	fmt.Fprintf(buf, `{
+		// // 		if s.ref() == nil { s.PassRef() }
+		// // 		if %s.ref() == nil {
+		// // 			__ret, _ := %s.PassRef()
+		// // 			s.ref().%s = *__ret
+		// // 		} else {
+		// // 			s.ref().%s = *%s.ref()
+		// // 		}
+		// // 		return s
+		// // 	}`, m.Name, m.Name, m.Name, m.Name, m.Name)
 
-				var __ret %s
-				if %s.ref() == nil {
-					__ret, _ = %s.PassRef()
-				} else {
-					__ret = %s.ref()
-				}
-				ptr0 := s.ref().%s
-				ptr := unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue))
+		// case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
+		// 	goSpecS0 := goSpec
+		// 	goSpecS0.Slices = 0
 
-				*(%s)(ptr) = *__ret
-				return s`, cgoSpec, unexport, unexport, unexport, m.Name, m.Name, goSpecName, cgoSpec)
-			fmt.Fprintf(buf, "}\n")
+		// 	// goSpec.Slices = 0
+		// 	goSpecName = fmt.Sprintf("%s", goSpecS0)
+		// 	unexport := unexportName(goSpecName)
+		// 	// sizeConst := "sizeOfPtr"
+		// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%sIndex int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, unexportName(goSpecName), goSpecS0, goStructName)
+		// 	fmt.Fprintf(buf, `
+		// 		if s.ref() == nil { s.PassRef() }
 
-		case goSpec.Kind == tl.StructKind && goSpec.Slices > 1:
-			cgoSpecP1 := cgoSpec
-			cgoSpecP1.Pointers -= 1
+		// 		var __ret %s
+		// 		if %s.ref() == nil {
+		// 			__ret, _ = %s.PassRef()
+		// 		} else {
+		// 			__ret = %s.ref()
+		// 		}
+		// 		ptr0 := s.ref().%s
+		// 		ptr := unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue))
 
-			goSpecS0 := goSpec
-			goSpecS0.Slices = 0
+		// 		*(%s)(ptr) = *__ret
+		// 		return s`, cgoSpec, unexport, unexport, unexport, m.Name, m.Name, goSpecName, cgoSpec)
+		// 	fmt.Fprintf(buf, "}\n")
 
-			// goSpec.Slices = 0
-			goSpecName = fmt.Sprintf("%s", goSpecS0)
-			unexport := unexportName(goSpecName)
-			// sizeConst := "sizeOfPtr"
-			fmt.Fprintf(buf, "func (s *%s) Set%s(%sRow int32, %sColumn int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, m.Name, unexportName(goSpecName), goSpecS0, goStructName)
-			fmt.Fprintf(buf, `
-				if s.ref() == nil { s.PassRef() }
+		// case goSpec.Kind == tl.StructKind && goSpec.Slices > 1:
+		// 	cgoSpecP1 := cgoSpec
+		// 	cgoSpecP1.Pointers -= 1
 
-				var __ret %s
-				if %s.ref() == nil {
-					__ret, _ = %s.PassRef()
-				} else {
-					__ret = %s.ref()
-				}
+		// 	goSpecS0 := goSpec
+		// 	goSpecS0.Slices = 0
 
-				ptr0 := s.ref().%s
-				ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sRow)*uintptr(sizeOfPtr)))
-				ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(%sColumn)*uintptr(sizeOf%sValue)))
-				*(%s)(ptr2) = *__ret
+		// 	// goSpec.Slices = 0
+		// 	goSpecName = fmt.Sprintf("%s", goSpecS0)
+		// 	unexport := unexportName(goSpecName)
+		// 	// sizeConst := "sizeOfPtr"
+		// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%sRow int32, %sColumn int32, %s %s) (*%s) {\n", goStructName, goName, m.Name, m.Name, unexportName(goSpecName), goSpecS0, goStructName)
+		// 	fmt.Fprintf(buf, `
+		// 		if s.ref() == nil { s.PassRef() }
 
-				return s`, cgoSpecP1, unexport, unexport, unexport, m.Name, cgoSpec, m.Name, cgoSpecP1, m.Name, goSpecName, cgoSpecP1)
-			fmt.Fprintf(buf, "}\n")
+		// 		var __ret %s
+		// 		if %s.ref() == nil {
+		// 			__ret, _ = %s.PassRef()
+		// 		} else {
+		// 			__ret = %s.ref()
+		// 		}
 
-			// case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
-			// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s) {\n", goStructName, goName, m.Name, goSpec, goStructName)
-			// 	fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
-			// 	fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
-			// 	fmt.Fprintf(buf, "\ts.ref().%s = %s\n", m.Name, fromProxy)
-			// 	fmt.Fprintf(buf, "return s\n")
-			// 	fmt.Fprintf(buf, "}\n")
-		}
+		// 		ptr0 := s.ref().%s
+		// 		ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sRow)*uintptr(sizeOfPtr)))
+		// 		ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(%sColumn)*uintptr(sizeOf%sValue)))
+		// 		*(%s)(ptr2) = *__ret
 
-		if goSpec.Kind != tl.PlainTypeKind && (len(goSpec.OuterArr.Sizes()) == 1 || goSpec.Slices > 0) {
-			// q.Q(goSpec)
-			helpers = append(helpers, &Helper{
-				Name:        fmt.Sprintf("%s.Set%s", goStructName, goName),
-				Description: fmt.Sprintf("Set%s update C object and binding struct", goName),
-				Source:      buf.String(),
-			})
-		}
+		// 		return s`, cgoSpecP1, unexport, unexport, unexport, m.Name, cgoSpec, m.Name, cgoSpecP1, m.Name, goSpecName, cgoSpecP1)
+		// 	fmt.Fprintf(buf, "}\n")
+
+		// 	// case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 0:
+		// 	// 	fmt.Fprintf(buf, "func (s *%s) Set%s(%s %s) (*%s) {\n", goStructName, goName, m.Name, goSpec, goStructName)
+		// 	// 	fromProxy, _ := gen.proxyValueFromGoEx(memTip, m.Name, goSpec, cgoSpec)
+		// 	// 	fmt.Fprintf(buf, "\tif s.ref() == nil { s.PassRef() }\n")
+		// 	// 	fmt.Fprintf(buf, "\ts.ref().%s = %s\n", m.Name, fromProxy)
+		// 	// 	fmt.Fprintf(buf, "return s\n")
+		// 	// 	fmt.Fprintf(buf, "}\n")
+		// }
+
+		// if goSpec.Kind != tl.PlainTypeKind && (len(goSpec.OuterArr.Sizes()) == 1 || goSpec.Slices > 0) {
+		// 	// q.Q(goSpec)
+		// 	helpers = append(helpers, &Helper{
+		// 		Name:        fmt.Sprintf("%s.Set%s", goStructName, goName),
+		// 		Description: fmt.Sprintf("Set%s update C object and binding struct", goName),
+		// 		Source:      buf.String(),
+		// 	})
+		// }
 
 	}
 	return
