@@ -114,6 +114,21 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	// })
 
 	buf.Reset()
+	fmt.Fprintf(buf, "func (x *%s) convert() *%s", goStructName, unexportName(spec.CGoName()))
+	fmt.Fprintf(buf, `{
+	    if x.ref%2x != nil {
+	        return (*%s)(unsafe.Pointer(x.ref%2x))
+	    }
+	    x.PassRef()
+	    return (*%s)(unsafe.Pointer(x.ref%2x))
+	}`, crc, unexportName(spec.CGoName()), crc, unexportName(spec.CGoName()), crc)
+	helpers = append(helpers, &Helper{
+		Name:        fmt.Sprintf("%s.convert", goStructName),
+		Description: "convert struct for mapping C struct unanimous.",
+		Source:      buf.String(),
+	})
+
+	buf.Reset()
 	fmt.Fprintf(buf, "func free%s(x *%s)", goStructName, goStructName)
 	fmt.Fprintf(buf, `{
 		if x != nil && x.allocs%2x != nil {
@@ -169,6 +184,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		}
 		obj := new(%s)
 		obj.ref%2x = (*%s)(unsafe.Pointer(ref))
+		// This
+		obj.This = obj.convert()
 		return obj
 	}`, goStructName, crc, cgoSpec)
 
@@ -215,20 +232,20 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		Source:      buf.String(),
 	})
 
-	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) Convert() *%s", goStructName, unexportName(string(goStructName)))
-	fmt.Fprintf(buf, `{
-	    if x.ref%2x != nil {
-	        return (*%s)(unsafe.Pointer(x.ref%2x))
-	    }
-	    x.PassRef()
-	    return (*%s)(unsafe.Pointer(x.ref%2x))
-	}`, crc, unexportName(string(goStructName)), crc, unexportName(string(goStructName)), crc)
-	helpers = append(helpers, &Helper{
-		Name:        fmt.Sprintf("%s.Convert", goStructName),
-		Description: "Convert struct for mapping C struct unanimous.",
-		Source:      buf.String(),
-	})
+	// buf.Reset()
+	// fmt.Fprintf(buf, "func (x *%s) Convert() *%s", goStructName, unexportName(string(goStructName)))
+	// fmt.Fprintf(buf, `{
+	//     if x.ref%2x != nil {
+	//         return (*%s)(unsafe.Pointer(x.ref%2x))
+	//     }
+	//     x.PassRef()
+	//     return (*%s)(unsafe.Pointer(x.ref%2x))
+	// }`, crc, unexportName(string(goStructName)), crc, unexportName(string(goStructName)), crc)
+	// helpers = append(helpers, &Helper{
+	// 	Name:        fmt.Sprintf("%s.Convert", goStructName),
+	// 	Description: "Convert struct for mapping C struct unanimous.",
+	// 	Source:      buf.String(),
+	// })
 
 	// buf.Reset()
 	// fmt.Fprintf(buf, "func (x *%s) Deref() {\n", goStructName)
@@ -773,6 +790,8 @@ func (gen *Generator) getPassRefSource(goStructName []byte, cStructName string, 
 	}
 	fmt.Fprintf(buf, "x.ref%2x = ref%2x\n", crc, crc)
 	fmt.Fprintf(buf, "x.allocs%2x = allocs%2x\n", crc, crc)
+	// This
+	fmt.Fprintf(buf, "x.This = x.convert()\n")
 
 	// auto free memory
 	// fmt.Fprintf(buf, "// auto free memory\n")
@@ -814,7 +833,7 @@ func (gen *Generator) getNewStructSource(goStructName []byte, cStructName string
 		goName := "g" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
 		fmt.Fprintf(buf, "obj.%s  = %s\n", goName, goName)
 	}
-	// fmt.Fprintf(buf, "obj.PassRef()\n")
+	fmt.Fprintf(buf, "obj.PassRef()\n")
 	fmt.Fprintf(buf, "return obj\n")
 	return buf.Bytes()
 }

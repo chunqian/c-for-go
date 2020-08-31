@@ -121,6 +121,8 @@ func (gen *Generator) writeStructTypedef(wr io.Writer, decl *tl.CDecl, raw bool,
 	writeSpace(wr, 1)
 	gen.submitHelper(cgoAllocMap)
 	gen.writeStructMembers(wr, cName, decl.Spec)
+	// This
+	fmt.Fprintf(wr, "This *%s\n", unexportName(decl.Spec.CGoName()))
 	writeEndStruct(wr)
 	writeSpace(wr, 1)
 
@@ -128,12 +130,15 @@ func (gen *Generator) writeStructTypedef(wr io.Writer, decl *tl.CDecl, raw bool,
 		gen.submitHelper(helper)
 	}
 
-	fmt.Fprintf(wr, "type %s struct {", unexportName(string(goName)))
-	writeSpace(wr, 1)
-	gen.submitHelper(cgoAllocMap)
-	gen.writeStructMembersEx(wr, cName, decl.Spec)
-	writeEndStruct(wr)
-	writeSpace(wr, 1)
+	if decl.Spec.CGoName() == cName {
+		fmt.Fprintf(wr, "type %s struct {", unexportName(string(goName)))
+		writeSpace(wr, 1)
+		gen.submitHelper(cgoAllocMap)
+		gen.writeStructMembersEx(wr, cName, decl.Spec)
+		writeEndStruct(wr)
+		writeSpace(wr, 1)
+	}
+
 }
 
 func (gen *Generator) writeUnionTypedef(wr io.Writer, decl *tl.CDecl) {
