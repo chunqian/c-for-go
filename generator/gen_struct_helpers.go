@@ -65,6 +65,55 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	cgoSpec := gen.tr.CGoSpec(spec, true)
 
 	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "func free%s(x *%s)", goStructName, goStructName)
+	fmt.Fprintf(buf, `{
+		if x != nil && x.allocs%2x != nil {
+			x.allocs%2x.(*cgoAllocMap).Free()
+			x.ref%2x = nil
+			return
+		}
+	}`, crc, crc, crc)
+	helpers = append(helpers, &Helper{
+		Name: fmt.Sprintf("free%s", goStructName),
+		Description: "Auto free invokes alloc map's free mechanism that cleanups any allocated memory using C free.\n" +
+			"Does nothing if struct is nil or has no allocation map.",
+		Source: buf.String(),
+	})
+
+	buf.Reset()
+	members := gen.getStructMembersHelpers(cStructName, spec)
+	fmt.Fprintf(buf, "func New%s(%s) %s {", goStructName, members, goStructName)
+	buf.Write(gen.getNewStructSource(goStructName, cStructName, spec))
+	buf.WriteRune('}')
+	nameT := fmt.Sprintf("New%s", goStructName)
+	helpers = append(helpers, &Helper{
+		Name:        nameT,
+		Description: nameT + " new Go object and Mapping to C object.",
+		Source:      buf.String(),
+	})
+
+	buf.Reset()
+	fmt.Fprintf(buf, "func New%sRef(ref unsafe.Pointer) *%s", goStructName, goStructName)
+	fmt.Fprintf(buf, `{
+		if ref == nil {
+			return nil
+		}
+		obj := new(%s)
+		obj.ref%2x = (*%s)(unsafe.Pointer(ref))
+		// This
+		obj.This = obj.convert()
+		return obj
+	}`, goStructName, crc, cgoSpec)
+
+	name := fmt.Sprintf("New%sRef", goStructName)
+	helpers = append(helpers, &Helper{
+		Name: name,
+		Description: name + " creates a new wrapper struct with underlying reference set to the original C object.\n" +
+			"Returns nil if the provided pointer to C object is nil too.",
+		Source: buf.String(),
+	})
+
+	buf.Reset()
 	fmt.Fprintf(buf, "func (x *%s) ref() *%s", goStructName, cgoSpec)
 	fmt.Fprintf(buf, `{
 		if x == nil {
@@ -129,72 +178,20 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	})
 
 	buf.Reset()
-	fmt.Fprintf(buf, "func free%s(x *%s)", goStructName, goStructName)
+	fmt.Fprintf(buf, "func (x *%s) GC()", goStructName)
 	fmt.Fprintf(buf, `{
-		if x != nil && x.allocs%2x != nil {
-			x.allocs%2x.(*cgoAllocMap).Free()
-			x.ref%2x = nil
-			// fmt.Printf("%s memory: %%p free\n", x)
-			// return
-		}
-		gc.mux.Lock() // gc lock
-		defer gc.mux.Unlock() // gc unlock
 		a := x.allocs%2x.(*cgoAllocMap)
-		if gc.references == nil {
-			return
-		}
-		for ptr := range a.m {
-			// C.free(ptr)
-			// delete(a.m, ptr)
-			if _, ok := gc.references[ptr]; ok {
-				gc.references[ptr].count -= 1
-				if gc.references[ptr].count == 0 {
-					fmt.Printf("%s memory: %%p free\n", ptr)
-					C.free(ptr)
-					delete(gc.references, ptr)
-					fmt.Printf("reference delete from gc collector, gc collector count: %%d\n", len(gc.references))
-				}
+		if len(a.m) > 0 {
+			for ptr := range a.m {
+				fmt.Printf("INFO: MEMORY: [PTR %%p] GC register\n", ptr)
 			}
+			runtime.SetFinalizer(x, free%s)
 		}
-	}`, crc, crc, crc, goStructName, crc, cgoSpec.Base)
+	}`, crc, goStructName)
 	helpers = append(helpers, &Helper{
-		Name: fmt.Sprintf("free%s", goStructName),
-		Description: "Auto free invokes alloc map's free mechanism that cleanups any allocated memory using C free.\n" +
-			"Does nothing if struct is nil or has no allocation map.",
-		Source: buf.String(),
-	})
-
-	buf.Reset()
-	members := gen.getStructMembersHelpers(cStructName, spec)
-	fmt.Fprintf(buf, "func New%s(%s) %s {", goStructName, members, goStructName)
-	buf.Write(gen.getNewStructSource(goStructName, cStructName, spec))
-	buf.WriteRune('}')
-	nameT := fmt.Sprintf("New%s", goStructName)
-	helpers = append(helpers, &Helper{
-		Name:        nameT,
-		Description: nameT + " new Go object and Mapping to C object.",
+		Name:        fmt.Sprintf("%s.GC", goStructName),
+		Description: "GC is register for garbage collection.",
 		Source:      buf.String(),
-	})
-
-	buf.Reset()
-	fmt.Fprintf(buf, "func New%sRef(ref unsafe.Pointer) *%s", goStructName, goStructName)
-	fmt.Fprintf(buf, `{
-		if ref == nil {
-			return nil
-		}
-		obj := new(%s)
-		obj.ref%2x = (*%s)(unsafe.Pointer(ref))
-		// This
-		obj.This = obj.convert()
-		return obj
-	}`, goStructName, crc, cgoSpec)
-
-	name := fmt.Sprintf("New%sRef", goStructName)
-	helpers = append(helpers, &Helper{
-		Name: name,
-		Description: name + " creates a new wrapper struct with underlying reference set to the original C object.\n" +
-			"Returns nil if the provided pointer to C object is nil too.",
-		Source: buf.String(),
 	})
 
 	buf.Reset()
@@ -747,13 +744,13 @@ func (gen *Generator) getPassRefSource(goStructName []byte, cStructName string, 
 	fmt.Fprintf(buf, "allocs%2x := new(cgoAllocMap)\n", crc)
 	fmt.Fprintf(buf, "// allocs%2x.Add(mem%2x)\n", crc, crc)
 
-	fmt.Fprintf(buf, `defer func() {
-		if len(x.allocs%2x.(*cgoAllocMap).m) > 0 {
-			runtime.SetFinalizer(x, free%s)
-		}
-	}()`, crc, string(goStructName))
+	// fmt.Fprintf(buf, `defer func() {
+	// 	if len(x.allocs%2x.(*cgoAllocMap).m) > 0 {
+	// 		runtime.SetFinalizer(x, free%s)
+	// 	}
+	// }()`, crc, string(goStructName))
 
-	writeSpace(buf, 2)
+	// writeSpace(buf, 2)
 
 	ptrTipRx, typeTipRx, memTipRx := gen.tr.TipRxsForSpec(tl.TipScopeType, cStructName, spec)
 	for i, m := range structSpec.Members {

@@ -1358,56 +1358,36 @@ var (
 	cgoAllocMap = &Helper{
 		Name:        "cgoAllocMap",
 		Description: "cgoAllocMap stores pointers to C allocated memory for future reference.",
-		Source: `type reference struct {
-			count int
-		}
-
-		type collector struct {
-			mux        sync.RWMutex
-			references map[unsafe.Pointer]*reference
-		}
-
-		var gc = new(collector)
-
-		type cgoAllocMap struct {
+		Source: `type cgoAllocMap struct {
 			mux sync.RWMutex
 			m   map[unsafe.Pointer]struct{}
 		}
 
 		var cgoAllocsUnknown = new(cgoAllocMap)
+		var allocReferenceCount int
 
 		func init() {
-			if gc.references == nil {
-				gc.references = make(map[unsafe.Pointer]*reference)
-			}
+			allocReferenceCount = 0
 		}
 
 		func (a *cgoAllocMap) Add(ptr unsafe.Pointer) {
 			a.mux.Lock()
-			gc.mux.Lock() // gc lock
+			defer a.mux.Unlock()
+
 			if a.m == nil {
 				a.m = make(map[unsafe.Pointer]struct{})
 			}
 			a.m[ptr] = struct{}{}
 
-			if gc.references == nil {
-				gc.references = make(map[unsafe.Pointer]*reference)
-			}
-			if _, ok := gc.references[ptr]; ok {
-				panic("The memory address already exists.")
-			}
-			gc.references[ptr] = &reference{}
-			gc.references[ptr].count += 1
-			fmt.Printf("reference add into gc collector, gc collector count: %d\n", len(gc.references))
-
-			a.mux.Unlock()
-			gc.mux.Unlock() // gc unlock
+			allocReferenceCount++
+			fmt.Printf("INFO: MEMORY: [PTR %p] CGO memory alloc\n", ptr)
 		}
 
 		func (a *cgoAllocMap) IsEmpty() bool {
 			a.mux.RLock()
+			defer a.mux.RUnlock()
+
 			isEmpty := len(a.m) == 0
-			a.mux.RUnlock()
 			return isEmpty
 		}
 
@@ -1415,8 +1395,12 @@ var (
 			if b == nil || b.IsEmpty() {
 				return
 			}
+
 			b.mux.Lock()
+			defer b.mux.Unlock()
 			a.mux.Lock()
+			defer a.mux.Unlock()
+
 			for ptr := range b.m {
 				if a.m == nil {
 					a.m = make(map[unsafe.Pointer]struct{})
@@ -1424,17 +1408,19 @@ var (
 				a.m[ptr] = struct{}{}
 				delete(b.m, ptr)
 			}
-			a.mux.Unlock()
-			b.mux.Unlock()
 		}
 
 		func (a *cgoAllocMap) Free() {
-			// a.mux.Lock()
-			// for ptr := range a.m {
-			// 	C.free(ptr)
-			// 	delete(a.m, ptr)
-			// }
-			// a.mux.Unlock()
+			a.mux.Lock()
+			defer a.mux.Unlock()
+
+			for ptr := range a.m {
+				C.free(ptr)
+				delete(a.m, ptr)
+
+				allocReferenceCount--
+				fmt.Printf("INFO: MEMORY: [PTR %p] CGO memory free\n", ptr)
+			}
 		}`,
 	}
 )
