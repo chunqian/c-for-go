@@ -65,7 +65,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	cgoSpec := gen.tr.CGoSpec(spec, true)
 
 	buf := new(bytes.Buffer)
-	fmt.Fprintf(buf, "func free%s(x *%s)", goStructName, goStructName)
+	fmt.Fprintf(buf, "func clear%sMemory(x *%s)", goStructName, goStructName)
 	fmt.Fprintf(buf, `{
 		if x != nil && x.allocs%2x != nil {
 			x.allocs%2x.(*cgoAllocMap).Free()
@@ -185,7 +185,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			for ptr := range a.m {
 				fmt.Printf("INFO: MEMORY: [PTR %%p] GC register\n", ptr)
 			}
-			runtime.SetFinalizer(x, free%s)
+			runtime.SetFinalizer(x, clear%sMemory)
 		}
 	}`, crc, goStructName)
 	helpers = append(helpers, &Helper{
