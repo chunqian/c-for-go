@@ -751,6 +751,8 @@ func (gen *Generator) getPassRefSource(goStructName []byte, cStructName string, 
 	// }()`, crc, string(goStructName))
 
 	// writeSpace(buf, 2)
+	
+	writeSpace(buf, 1)
 
 	ptrTipRx, typeTipRx, memTipRx := gen.tr.TipRxsForSpec(tl.TipScopeType, cStructName, spec)
 	for i, m := range structSpec.Members {
