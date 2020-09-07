@@ -730,8 +730,12 @@ func (gen *Generator) getPassRefSource(goStructName []byte, cStructName string, 
 	fmt.Fprintf(buf, `if x == nil {
 		return nil, nil
 	} else if x.ref%2x != nil {
-		return x.ref%2x, nil
-	}`, crc, crc)
+		if x.allocs%2x != nil {
+			return x.ref%2x, x.allocs%2x.(*cgoAllocMap)
+		} else {
+			return x.ref%2x, nil
+		}
+	}`, crc, crc, crc, crc, crc)
 	writeSpace(buf, 1)
 
 	h := gen.getAllocMemoryHelper(tl.CGoSpec{Base: cgoSpec.Base})
@@ -743,7 +747,13 @@ func (gen *Generator) getPassRefSource(goStructName []byte, cStructName string, 
 	fmt.Fprintf(buf, "allocs%2x := new(cgoAllocMap)\n", crc)
 	fmt.Fprintf(buf, "// allocs%2x.Add(mem%2x)\n", crc, crc)
 
-	writeSpace(buf, 1)
+	fmt.Fprintf(buf, `defer func() {
+		if len(x.allocs%2x.(*cgoAllocMap).m) > 0 {
+			runtime.SetFinalizer(x, free%s)
+		}
+	}()`, crc, string(goStructName))
+
+	writeSpace(buf, 2)
 
 	ptrTipRx, typeTipRx, memTipRx := gen.tr.TipRxsForSpec(tl.TipScopeType, cStructName, spec)
 	for i, m := range structSpec.Members {
@@ -797,14 +807,14 @@ func (gen *Generator) getPassRefSource(goStructName []byte, cStructName string, 
 	// fmt.Fprintf(buf, "// auto free memory\n")
 	// fmt.Fprintf(buf, "runtime.SetFinalizer(x, free%s)\n", string(goStructName))
 
-	fmt.Fprintf(buf, `defer func() {
-		if len(x.allocs%2x.(*cgoAllocMap).m) > 0 {
-			runtime.SetFinalizer(x, free%s)
-		}
-	}()`, crc, string(goStructName))
+	// fmt.Fprintf(buf, `defer func() {
+	// 	if len(x.allocs%2x.(*cgoAllocMap).m) > 0 {
+	// 		runtime.SetFinalizer(x, free%s)
+	// 	}
+	// }()`, crc, string(goStructName))
 	writeSpace(buf, 1)
 	fmt.Fprintf(buf, "return ref%2x, allocs%2x\n", crc, crc)
-	writeSpace(buf, 1)
+	// writeSpace(buf, 1)
 	return buf.Bytes()
 }
 
