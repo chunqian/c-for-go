@@ -717,13 +717,13 @@ func (gen *Generator) packObj(buf io.Writer, goSpec tl.GoTypeSpec, cgoSpec tl.CG
 
 	switch {
 	case goSpec.Slices == 1 && goSpec.Pointers == 0 && cgoSpec.Pointers == 1:
-		fmt.Fprintf(buf, "v%s = %sNew%sRef(unsafe.Pointer(ptr%d))\n",
+		fmt.Fprintf(buf, "v%s = %snew%sRef(unsafe.Pointer(ptr%d))\n",
 			genIndices("i", level), ptr, goSpec.Raw, level)
 	default:
-		fmt.Fprintf(buf, "v%s = %sNew%sRef(unsafe.Pointer(%sptr%d))\n",
+		fmt.Fprintf(buf, "v%s = %snew%sRef(unsafe.Pointer(%sptr%d))\n",
 			genIndices("i", level), ptr, goSpec.Raw, ref, level)
 	}
-	// fmt.Fprintf(buf, "v%s = %sNew%sRef(unsafe.Pointer(%sptr%d))\n",
+	// fmt.Fprintf(buf, "v%s = %snew%sRef(unsafe.Pointer(%sptr%d))\n",
 	// 	genIndices("i", level), ptr, goSpec.Raw, ref, level)
 	return nil
 }
@@ -907,7 +907,7 @@ func (gen *Generator) proxyArgToGo(memTip tl.Tip, varName, ptrName string,
 		proxy = fmt.Sprintf("*%s = *(*%s)(unsafe.Pointer(&%s))", varName, goSpec, ptrName)
 		return
 	default: // ex: *SomeType
-		proxy = fmt.Sprintf("*%s = *(New%sRef(unsafe.Pointer(%s)))", varName, goSpec.Raw, ptrName)
+		proxy = fmt.Sprintf("*%s = *(new%sRef(unsafe.Pointer(%s)))", varName, goSpec.Raw, ptrName)
 		return
 	}
 }
@@ -1009,7 +1009,7 @@ func (gen *Generator) proxyValueToGo(memTip tl.Tip, varName, ptrName string,
 			deref = "*"
 			ref = "&"
 		}
-		proxy = fmt.Sprintf("%s = %sNew%sRef(unsafe.Pointer(%s%s))", varName, deref, goSpec.Raw, ref, ptrName)
+		proxy = fmt.Sprintf("%s = %snew%sRef(unsafe.Pointer(%s%s))", varName, deref, goSpec.Raw, ref, ptrName)
 		return
 	}
 }
@@ -1145,7 +1145,7 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 			deref = "*"
 			ref = "&"
 		}
-		proxy = fmt.Sprintf("%s := %sNew%sRef(unsafe.Pointer(%s%s))", varName, deref, goSpec.Raw, ref, ptrName)
+		proxy = fmt.Sprintf("%s := %snew%sRef(unsafe.Pointer(%s%s))", varName, deref, goSpec.Raw, ref, ptrName)
 		return
 	}
 }

@@ -104,12 +104,12 @@ func (gen *Generator) getCallbackHelpers(goFuncName, cFuncName string, spec tl.C
 	}
 
 	buf = new(bytes.Buffer)
-	fmt.Fprintf(buf, "func New%sRef(ref unsafe.Pointer) *%s", goFuncName, goFuncName)
+	fmt.Fprintf(buf, "func new%sRef(ref unsafe.Pointer) *%s", goFuncName, goFuncName)
 	fmt.Fprintf(buf, `{
 		return (*%s)(ref)
 	}`, goFuncName)
 	helpers = append(helpers, &Helper{
-		Name:   fmt.Sprintf("New%sRef", goFuncName),
+		Name:   fmt.Sprintf("new%sRef", goFuncName),
 		Source: buf.String(),
 	})
 
@@ -295,7 +295,7 @@ func (gen *Generator) proxyCallbackArgToGo(memTip tl.Tip, varName, ptrName strin
 			deref = "*"
 			ref = "&"
 		}
-		proxy = fmt.Sprintf("%s := %sNew%sRef(unsafe.Pointer(%s%s))", varName, deref, goSpec.Raw, ref, ptrName)
+		proxy = fmt.Sprintf("%s := %snew%sRef(unsafe.Pointer(%s%s))", varName, deref, goSpec.Raw, ref, ptrName)
 		return
 	}
 }

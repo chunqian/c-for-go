@@ -93,7 +93,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	})
 
 	buf.Reset()
-	fmt.Fprintf(buf, "func New%sRef(ref unsafe.Pointer) *%s", goStructName, goStructName)
+	fmt.Fprintf(buf, "func new%sRef(ref unsafe.Pointer) *%s", goStructName, goStructName)
 	fmt.Fprintf(buf, `{
 		if ref == nil {
 			return nil
@@ -105,7 +105,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		return obj
 	}`, goStructName, crc, cgoSpec)
 
-	name := fmt.Sprintf("New%sRef", goStructName)
+	name := fmt.Sprintf("new%sRef", goStructName)
 	helpers = append(helpers, &Helper{
 		Name: name,
 		Description: name + " creates a new wrapper struct with underlying reference set to the original C object.\n" +
@@ -220,7 +220,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	fmt.Fprintf(buf, `{
 	    ptr0, _ := x.PassRef()
 	    ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(index)*uintptr(sizeOf%sValue)))
-	    ret := New%sRef(unsafe.Pointer(ptr1))
+	    ret := new%sRef(unsafe.Pointer(ptr1))
 	    return ret
 	}`, cgoSpec, spec.GetTag(), goStructName)
 	helpers = append(helpers, &Helper{
@@ -316,7 +316,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 				// c struct pointer offset
 				ptr0 := &s.ref().%s
 				ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue)))
-				ret = New%sRef(unsafe.Pointer(ptr1))
+				ret = new%sRef(unsafe.Pointer(ptr1))
 
 				return ret
 			}`, goSpecS0P0Out0, m.Name, cgoSpec.Base, m.Name, goSpecS0P0Out0, goSpecS0P0Out0)
@@ -334,7 +334,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 		ptr0 := &s.ref().%s
 		// 		for i0 := range ret {
 		// 			ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(sizeOf%sValue)))
-		// 			ret[i0] = *New%sRef(unsafe.Pointer(ptr1))
+		// 			ret[i0] = *new%sRef(unsafe.Pointer(ptr1))
 		// 		}
 		// 		return ret
 		// 	}`, goSpec, m.Name, cgoSpec.Base, goSpecS0P0Out0, goSpecS0P0Out0)
@@ -361,7 +361,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 				ptr0 := s.ref().%s
 				ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(%sIndex)*uintptr(sizeOf%sValue)))
 
-				ret = New%sRef(unsafe.Pointer(ptr1))
+				ret = new%sRef(unsafe.Pointer(ptr1))
 				return ret
 			}`, goSpecS0P0, m.Name, cgoSpec.Base, m.Name, goSpecS0P0, goSpecS0P0)
 		// case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
@@ -399,7 +399,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 				ptr0 := s.ref().%s
 				ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(row)*uintptr(sizeOfPtr)))
 				ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(column)*uintptr(sizeOf%sValue)))
-				ret = New%sRef(unsafe.Pointer(ptr2))
+				ret = new%sRef(unsafe.Pointer(ptr2))
 
 				return ret
 			}`, m.Name, m.Name, goSpecS0P0, m.Name, cgoSpecP2, cgoSpecP1, m.Spec.GetBase(), m.Spec.GetBase())
@@ -433,7 +433,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 		// 			ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(sizeOfPtr)))
 		// 			for i1 := range ret[i0] {
 		// 				ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(i1)*uintptr(sizeOf%sValue)))
-		// 				ret[i0][i1] = *New%sRef(unsafe.Pointer(ptr2))
+		// 				ret[i0][i1] = *new%sRef(unsafe.Pointer(ptr2))
 		// 			}
 		// 		}
 		// 		return ret
@@ -625,11 +625,11 @@ func (gen *Generator) getRawStructHelpers(goStructName []byte, cStructName strin
 	})
 
 	buf.Reset()
-	fmt.Fprintf(buf, "func New%sRef(ref unsafe.Pointer) *%s", goStructName, goStructName)
+	fmt.Fprintf(buf, "func new%sRef(ref unsafe.Pointer) *%s", goStructName, goStructName)
 	fmt.Fprintf(buf, `{
 		return (*%s)(ref)
 	}`, goStructName)
-	name := fmt.Sprintf("New%sRef", goStructName)
+	name := fmt.Sprintf("new%sRef", goStructName)
 	helpers = append(helpers, &Helper{
 		Name:        name,
 		Description: name + " converts the C object reference into a raw struct reference without wrapping.",
