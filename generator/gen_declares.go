@@ -79,6 +79,7 @@ func (gen *Generator) writeFunctionDeclaration(wr io.Writer, decl *tl.CDecl,
 		// if ret.Slices > 0 {
 		// 	ret.Pointers += 1
 		// }
+		// ret.Raw = unexportName(ret.Raw)
 		returnRef = ret.String()
 	}
 	cName, _ := getName(decl)

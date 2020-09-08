@@ -428,6 +428,10 @@ func (gen *Generator) getUnpackMemoryStringHelper(cgoSpec tl.CGoSpec) *Helper {
 }
 
 func goSpecArg(goSpec tl.GoTypeSpec, isArg bool) string {
+	if goSpec.Kind == tl.StructKind {
+		goSpec.Raw = "g" + goSpec.Raw
+	}
+	
 	if !isArg {
 		return goSpec.String()
 	}
@@ -680,10 +684,12 @@ func (gen *Generator) proxyArgFromGo(memTip tl.Tip, name string,
 		return
 	default: // ex: *SomeType
 		if goSpec.Pointers == 0 {
-			proxy = fmt.Sprintf("%s.PassValue()", name)
+			// proxy = fmt.Sprintf("%s.PassValue()", name)
+			proxy = fmt.Sprintf("*(*%s)(unsafe.Pointer(&%s)), cgoAllocsUnknown", cgoSpec, name)
 			return
 		}
-		proxy = fmt.Sprintf("%s.PassRef()", name)
+		// proxy = fmt.Sprintf("%s.PassRef()", name)
+		proxy = fmt.Sprintf("(%s)(unsafe.Pointer(%s)), cgoAllocsUnknown", cgoSpec, name)
 		return
 	}
 }
@@ -966,7 +972,7 @@ func (gen *Generator) proxyValueToGo(memTip tl.Tip, varName, ptrName string,
 		fmt.Fprintf(buf, `
 			const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
 			ret = make(%s, %sCount)
-			ptr0 := s.ref().%s
+			ptr0 := s.%s
 		    // c struct pointer offset
 		    for i0 := range ret {
 		        ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(sizeOfPlainValue)))
@@ -1145,7 +1151,8 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 			deref = "*"
 			ref = "&"
 		}
-		proxy = fmt.Sprintf("%s := %snew%sRef(unsafe.Pointer(%s%s))", varName, deref, goSpec.Raw, ref, ptrName)
+		proxy = fmt.Sprintf("%s := %snew%sRef(unsafe.Pointer(%s%s)).convert()", varName, deref, goSpec.Raw, ref, ptrName)
+		// proxy = fmt.Sprintf("%s := %snew%sRef(unsafe.Pointer(%s%s))", varName, deref, goSpec.Raw, ref, ptrName)
 		return
 	}
 }

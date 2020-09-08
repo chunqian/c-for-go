@@ -98,6 +98,8 @@ func (gen *Generator) writeStructTypedef(wr io.Writer, decl *tl.CDecl, raw bool,
 		return
 	}
 	goName := gen.tr.TransformName(tl.TargetType, cName)
+	// goNameL := unexportName(string(goName))
+
 	if seenNames[string(goName)] {
 		return
 	} else {
@@ -117,12 +119,13 @@ func (gen *Generator) writeStructTypedef(wr io.Writer, decl *tl.CDecl, raw bool,
 
 	fmt.Fprintf(wr, "// %s as declared in %s\n", goName,
 		filepath.ToSlash(gen.tr.SrcLocation(tl.TargetType, cName, decl.Pos)))
-	fmt.Fprintf(wr, "type %s struct {", goName)
+	fmt.Fprintf(wr, "type g%s struct {", goName)
 	writeSpace(wr, 1)
 	gen.submitHelper(cgoAllocMap)
 	gen.writeStructMembers(wr, cName, decl.Spec)
 	// This
-	fmt.Fprintf(wr, "This *%s\n", unexportName(decl.Spec.CGoName()))
+	// fmt.Fprintf(wr, "This *%s\n", unexportName(decl.Spec.CGoName()))
+	// fmt.Fprintf(wr, "This *%s\n", goNameL)
 	writeEndStruct(wr)
 	writeSpace(wr, 1)
 
@@ -130,14 +133,14 @@ func (gen *Generator) writeStructTypedef(wr io.Writer, decl *tl.CDecl, raw bool,
 		gen.submitHelper(helper)
 	}
 
-	if decl.Spec.CGoName() == cName {
-		fmt.Fprintf(wr, "type %s struct {", unexportName(string(goName)))
+	// if decl.Spec.CGoName() == cName {
+		fmt.Fprintf(wr, "type %s struct {", goName)
 		writeSpace(wr, 1)
 		gen.submitHelper(cgoAllocMap)
 		gen.writeStructMembersEx(wr, cName, decl.Spec)
 		writeEndStruct(wr)
 		writeSpace(wr, 1)
-	}
+	// }
 
 }
 
