@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/chunqian/q"
 	tl "github.com/xlab/c-for-go/translator"
 )
 
@@ -42,6 +43,12 @@ func (gen *Generator) writeStructMembers(wr io.Writer, structName string, spec t
 			fmt.Fprintf(wr, "%s %s", declName, goSpec)
 		case tl.StructKind, tl.OpaqueStructKind, tl.UnionKind:
 			if !gen.tr.IsAcceptableName(tl.TargetType, member.Spec.GetBase()) {
+				q.Q(member.Spec.CGoName())
+
+				member.Spec.SetRaw("C." + member.Spec.GetTag())
+				ptrTip = tl.TipPtrSRef
+				goSpec := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip)
+				fmt.Fprintf(wr, "%s %s\n", declName, goSpec)
 				continue
 			}
 			goSpec := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip)
@@ -93,7 +100,7 @@ func (gen *Generator) writeStructMembersEx(wr io.Writer, structName string, spec
 			ptrTip = tl.TipPtrSRef
 		}
 		declName := checkName(gen.tr.TransformName(tl.TargetType, member.Name, public))
-		declNameL := unexportName(string(declName))
+		// declNameL := unexportName(string(declName))
 
 		switch member.Spec.Kind() {
 		case tl.TypeKind:
@@ -103,14 +110,20 @@ func (gen *Generator) writeStructMembersEx(wr io.Writer, structName string, spec
 			}
 			goSpec := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip)
 
-			if goSpec.Pointers > 0 {
-				fmt.Fprintf(wr, "%s %s", declNameL, goSpec)
-			} else {
-				fmt.Fprintf(wr, "%s %s", declName, goSpec)
-			}
-			// fmt.Fprintf(wr, "%s %s", declName, goSpec)
+			// if goSpec.Pointers > 0 {
+			// 	fmt.Fprintf(wr, "%s %s", declNameL, goSpec)
+			// } else {
+			// 	fmt.Fprintf(wr, "%s %s", declName, goSpec)
+			// }
+			fmt.Fprintf(wr, "%s %s", declName, goSpec)
 		case tl.StructKind, tl.OpaqueStructKind, tl.UnionKind:
 			if !gen.tr.IsAcceptableName(tl.TargetType, member.Spec.GetBase()) {
+				q.Q(member.Spec.CGoName())
+
+				member.Spec.SetRaw("C." + member.Spec.GetTag())
+				ptrTip = tl.TipPtrSRef
+				goSpec := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip)
+				fmt.Fprintf(wr, "%s %s", declName, goSpec)
 				continue
 			}
 
@@ -121,12 +134,12 @@ func (gen *Generator) writeStructMembersEx(wr io.Writer, structName string, spec
 			goSpec := gen.tr.TranslateSpec(member.Spec, ptrTip, typeTip)
 			// goSpec.Raw = unexportName(goSpec.Raw)
 
-			if goSpec.Pointers > 0 {
-				fmt.Fprintf(wr, "%s %s", declNameL, goSpec)
-			} else {
-				fmt.Fprintf(wr, "%s %s", declName, goSpec)
-			}
-			// fmt.Fprintf(wr, "%s %s", declName, goSpec)
+			// if goSpec.Pointers > 0 {
+			// 	fmt.Fprintf(wr, "%s %s", declNameL, goSpec)
+			// } else {
+			// 	fmt.Fprintf(wr, "%s %s", declName, goSpec)
+			// }
+			fmt.Fprintf(wr, "%s %s", declName, goSpec)
 		case tl.EnumKind:
 			if !gen.tr.IsAcceptableName(tl.TargetType, member.Spec.GetBase()) {
 				continue

@@ -3,7 +3,7 @@ module github.com/xlab/c-for-go
 go 1.14
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/chunqian/q v0.0.0-20200323040215-28750b4abd88
 	github.com/stretchr/testify v1.6.1 // indirect
 	github.com/tj/go-spin v1.1.0
 	github.com/xlab/pkgconfig v0.0.0-20170226114623-cea12a0fd245

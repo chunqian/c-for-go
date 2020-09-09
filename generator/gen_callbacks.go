@@ -70,7 +70,7 @@ func (gen *Generator) getCallbackHelpers(goFuncName, cFuncName string, spec tl.C
 		Base: cFuncName,
 	}, true)
 	buf = new(bytes.Buffer)
-	fmt.Fprintf(buf, "func (x %s) PassRef() (ref *%s, allocs *cgoAllocMap)", goFuncName, cgoSpec)
+	fmt.Fprintf(buf, "func (x %s) passRef() (ref *%s, allocs *cgoAllocMap)", goFuncName, cgoSpec)
 	fmt.Fprintf(buf, `{
 		if x == nil {
 			return nil, nil
@@ -81,13 +81,13 @@ func (gen *Generator) getCallbackHelpers(goFuncName, cFuncName string, spec tl.C
 		return (*%s)(C.%s), nil
 	}`, cbGoName, cbGoName, cgoSpec, cbCName)
 	helpers = append(helpers, &Helper{
-		Name:   fmt.Sprintf("%s.PassRef", goFuncName),
+		Name:   fmt.Sprintf("%s.passRef", goFuncName),
 		Source: buf.String(),
 	})
 
 	if spec.GetPointers() > 0 {
 		buf = new(bytes.Buffer)
-		fmt.Fprintf(buf, "func (x %s) PassValue() (ref %s, allocs *cgoAllocMap)", goFuncName, cgoSpec)
+		fmt.Fprintf(buf, "func (x %s) passValue() (ref %s, allocs *cgoAllocMap)", goFuncName, cgoSpec)
 		fmt.Fprintf(buf, `{
 		if x == nil {
 			return nil, nil
@@ -98,7 +98,7 @@ func (gen *Generator) getCallbackHelpers(goFuncName, cFuncName string, spec tl.C
 		return (%s)(C.%s), nil
 	}`, cbGoName, cbGoName, cgoSpec, cbCName)
 		helpers = append(helpers, &Helper{
-			Name:   fmt.Sprintf("%s.PassValue", goFuncName),
+			Name:   fmt.Sprintf("%s.passValue", goFuncName),
 			Source: buf.String(),
 		})
 	}
