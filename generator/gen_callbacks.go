@@ -76,8 +76,8 @@ func (gen *Generator) getCallbackHelpers(goFuncName, cFuncName string, spec tl.C
 			return nil, nil
 		}
 		if %sFunc == nil {
- 			%sFunc = x
- 		}
+			%sFunc = x
+		}
 		return (*%s)(C.%s), nil
 	}`, cbGoName, cbGoName, cgoSpec, cbCName)
 	helpers = append(helpers, &Helper{
@@ -93,8 +93,8 @@ func (gen *Generator) getCallbackHelpers(goFuncName, cFuncName string, spec tl.C
 			return nil, nil
 		}
 		if %sFunc == nil {
- 			%sFunc = x
- 		}
+			%sFunc = x
+		}
 		return (%s)(C.%s), nil
 	}`, cbGoName, cbGoName, cgoSpec, cbCName)
 		helpers = append(helpers, &Helper{

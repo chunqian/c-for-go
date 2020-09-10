@@ -132,11 +132,11 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	buf.Reset()
 	fmt.Fprintf(buf, "func (x *g%s) convert() *%s", goStructName, goStructName)
 	fmt.Fprintf(buf, `{
-	    if x.ref%2x != nil {
-	        return (*%s)(unsafe.Pointer(x.ref%2x))
-	    }
-	    x.passRef()
-	    return (*%s)(unsafe.Pointer(x.ref%2x))
+		if x.ref%2x != nil {
+			return (*%s)(unsafe.Pointer(x.ref%2x))
+		}
+		x.passRef()
+		return (*%s)(unsafe.Pointer(x.ref%2x))
 	}`, crc, goStructName, crc, goStructName, crc)
 	helpers = append(helpers, &Helper{
 		Name:        fmt.Sprintf("%s.convert", goStructName),
@@ -149,12 +149,13 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	fmt.Fprintf(buf, "func New%s(%s) %s {", goStructName, members, goStructName)
 	buf.Write(gen.getNewStructSource(goStructName, cStructName, spec))
 	fmt.Fprintf(buf, `
-        ret0, alloc0 := obj.passRef()
-        if len(alloc0.m) > 0 {
-            panic("Cgo memory alloced, please use func Alloc%s.")
-        }
-        return *(*%s)(unsafe.Pointer(ret0))
-    `, goStructName, goStructName)
+		ret0, alloc0 := obj.passRef()
+
+		if len(alloc0.m) > 0 {
+			panic("Cgo memory alloced, please use func Alloc%s.")
+		}
+		return *(*%s)(unsafe.Pointer(ret0))
+	`, goStructName, goStructName)
 	buf.WriteRune('}')
 	name = fmt.Sprintf("New%s", goStructName)
 	helpers = append(helpers, &Helper{
@@ -168,10 +169,10 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	fmt.Fprintf(buf, "func Alloc%s(%s) (*%s, *cgoAllocMap) {", goStructName, members, goStructName)
 	buf.Write(gen.getNewStructSource(goStructName, cStructName, spec))
 	fmt.Fprintf(buf, `
-        ret0, alloc0 := obj.passRef()
-	    ret1 := (*%s)(unsafe.Pointer(ret0))
-	    return ret1, alloc0
-    `, goStructName)
+		ret0, alloc0 := obj.passRef()
+		ret1 := (*%s)(unsafe.Pointer(ret0))
+		return ret1, alloc0
+	`, goStructName)
 	buf.WriteRune('}')
 	name = fmt.Sprintf("Alloc%s", goStructName)
 	helpers = append(helpers, &Helper{
@@ -183,8 +184,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	buf.Reset()
 	fmt.Fprintf(buf, "func (x *%s) Index(index int32) *%s", goStructName, goStructName)
 	fmt.Fprintf(buf, `{
-	    ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(x)) + uintptr(index)*uintptr(sizeOf%sValue)))
-	    return ptr1
+		ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(x)) + uintptr(index)*uintptr(sizeOf%sValue)))
+		return ptr1
 	}`, goStructName, spec.GetTag())
 	helpers = append(helpers, &Helper{
 		Name:        fmt.Sprintf("%s.Index", goStructName),
@@ -195,8 +196,8 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	buf.Reset()
 	fmt.Fprintf(buf, "func (x *%s) Index(index int32) *%s", goStructName, goStructName)
 	fmt.Fprintf(buf, `{
-	    ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(x)) + uintptr(index)*uintptr(sizeOf%sValue)))
-	    return ptr1
+		ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(x)) + uintptr(index)*uintptr(sizeOf%sValue)))
+		return ptr1
 	}`, goStructName, spec.GetTag())
 	helpers = append(helpers, &Helper{
 		Name:        fmt.Sprintf("%s.Index", goStructName),
@@ -205,16 +206,19 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	})
 
 	buf.Reset()
-	fmt.Fprintf(buf, "func (x *%s) GC(a *cgoAllocMap)", goStructName)
+	fmt.Fprintf(buf, "func (x *%s) GC(a *cgoAllocMap, args ...*cgoAllocMap)", goStructName)
 	fmt.Fprintf(buf, `{
-	    if len(a.m) > 0 {
-	        for ptr := range a.m {
-	            fmt.Printf("INFO: MEMORY: [PTR %%p] GC register\n", ptr)
-	        }
-	        runtime.SetFinalizer(x, func(*%s) {
-	            a.Free()
-	        })
-	    }
+		for i := range args {
+			a.Borrow(args[i])
+		}
+		if len(a.m) > 0 {
+			for ptr := range a.m {
+				fmt.Printf("INFO: MEMORY: [PTR %%p] GC register\n", ptr)
+			}
+			runtime.SetFinalizer(x, func(*%s) {
+				a.Free()
+			})
+		}
 	}`, goStructName)
 	helpers = append(helpers, &Helper{
 		Name:        fmt.Sprintf("%s.GC", goStructName),
@@ -295,6 +299,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 				return ret
 			}`, goSpecS0P0Out0, goName, cgoSpec.Base, goSpecS0P0Out0, goSpecS0P0Out0)
+			break
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
 			goSpecS0P0 := goSpec
 			goSpecS0P0.Slices -= 1
@@ -310,6 +315,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 				return ret
 			}`, goSpecS0P0, goName, cgoSpec.Base, goSpecS0P0, goSpecS0P0)
+			break
 		case goSpec.Kind == tl.StructKind && goSpec.Slices == 2:
 			goSpecS0P0 := goSpec
 			goSpecS0P0.Pointers -= 1
@@ -334,7 +340,34 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 
 				return ret
 			}`, goSpecS0P0, goName, cgoSpecP2, cgoSpecP1, m.Spec.GetBase(), m.Spec.GetBase())
-		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices > 0:
+			break
+		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 2:
+			goSpecS0P0 := goSpec
+			goSpecS0P0.Pointers -= 1
+			goSpecS0P0.Slices -= 2
+
+			cgoSpecP2 := cgoSpec
+			cgoSpecP2.Pointers -= 1
+
+			cgoSpecP1 := cgoSpec
+			cgoSpecP1.Pointers -= 2
+
+			cgoSpecP0 := cgoSpec
+			cgoSpecP0.Pointers -= 3
+			fmt.Fprintf(buf, "func (x *%s) %ser(row int32, column int32) *%s", goStructName, goName, goSpecS0P0)
+			fmt.Fprintf(buf, `{
+				var ret *%s
+				const sizeOfPlainValue = unsafe.Sizeof([1]C.%s{})
+
+				ptr0 := x.%s
+				ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(row)*uintptr(sizeOfPtr)))
+				ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(column)*uintptr(sizeOfPlainValue)))
+				ret = (*%s)(unsafe.Pointer(ptr2))
+
+				return ret
+			}`, goSpecS0P0, m.Spec.GetBase(), goName, cgoSpecP2, cgoSpecP1, goSpecS0P0)
+			break
+		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices == 1:
 			goSpecS0 := goSpec
 			goSpecS0.Slices = 0
 
@@ -344,6 +377,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 			fmt.Fprintf(buf, "\t%s\n", toProxy)
 			fmt.Fprintf(buf, "\treturn ret\n")
 			fmt.Fprintf(buf, "}\n")
+			break
 		}
 
 		if len(goSpec.OuterArr.Sizes()) == 1 || goSpec.Slices > 0 {
@@ -639,7 +673,7 @@ func (gen *Generator) getNewStructSource(goStructName []byte, cStructName string
 					%s = append(%s, p0)
 				}
 				obj.%s = %s
-         	`, goTmpName, goSpec, goElementName, typeName, goElementName, goTmpName, goTmpName, goName, goTmpName)
+			`, goTmpName, goSpec, goElementName, typeName, goElementName, goTmpName, goTmpName, goName, goTmpName)
 		case m.Spec.Kind() == tl.StructKind && m.Spec.GetPointers() == 2 && len(goSpec.OuterArr.Sizes()) == 0:
 			const public = true
 			// goName := "x." + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
@@ -663,7 +697,7 @@ func (gen *Generator) getNewStructSource(goStructName []byte, cStructName string
 					%s = append(%s, s0)
 				}
 				obj.%s = %s
-         	`, goTmpName, goSpec, goElementName, goSpecS1, typeName, goElementName, goTmpName, goTmpName, goName, goTmpName)
+			`, goTmpName, goSpec, goElementName, goSpecS1, typeName, goElementName, goTmpName, goTmpName, goName, goTmpName)
 		case m.Spec.Kind() == tl.StructKind && m.Spec.GetPointers() == 0 && len(goSpec.OuterArr.Sizes()) == 1:
 			const public = true
 			// goName := "x." + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
@@ -679,7 +713,7 @@ func (gen *Generator) getNewStructSource(goStructName []byte, cStructName string
 					%s[i0] = p0
 				}
 				obj.%s = %s
-         	`, goTmpName, goSpec, goElementName, typeName, goElementName, goTmpName, goName, goTmpName)
+			`, goTmpName, goSpec, goElementName, typeName, goElementName, goTmpName, goName, goTmpName)
 		default:
 			const public = true
 			// goName := "x." + string(gen.tr.TransformName(tl.TargetType, m.Name, public))

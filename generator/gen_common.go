@@ -115,6 +115,10 @@ func (gen *Generator) writeStructMembersEx(wr io.Writer, structName string, spec
 			// } else {
 			// 	fmt.Fprintf(wr, "%s %s", declName, goSpec)
 			// }
+			if member.Spec.GetPointers() > 1 {
+				goSpec.Pointers = goSpec.Slices + goSpec.Pointers
+				goSpec.Slices = 0
+			}
 			fmt.Fprintf(wr, "%s %s", declName, goSpec)
 		case tl.StructKind, tl.OpaqueStructKind, tl.UnionKind:
 			if !gen.tr.IsAcceptableName(tl.TargetType, member.Spec.GetBase()) {

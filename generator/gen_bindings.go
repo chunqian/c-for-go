@@ -205,7 +205,12 @@ func (gen *Generator) unpackObjEx(buf io.Writer, goSpec tl.GoTypeSpec, cgoSpec t
 	if isPlain {
 		cgoSpecP1 := cgoSpec
 		cgoSpecP1.Pointers -= 1
-		fmt.Fprintf(buf, "v%d[i%d] = (%s)(x%s)\n", uplevel, uplevel, cgoSpecP1, indices)
+		if cgoSpecP1.Pointers > 0 {
+			fmt.Fprintf(buf, "v%d[i%d] = *(%s)(unsafe.Pointer(&x%s))\n", uplevel, uplevel, cgoSpecP1, indices)
+		} else {
+			fmt.Fprintf(buf, "v%d[i%d] = (%s)(x%s)\n", uplevel, uplevel, cgoSpecP1, indices)
+		}
+
 		return nil
 	}
 	if goSpec.Pointers == 0 {
@@ -392,11 +397,11 @@ func (gen *Generator) getUnpackMemoryStringHelper(cgoSpec tl.CGoSpec) *Helper {
 		Name:        name,
 		Description: fmt.Sprintf("%s represents the data from Go string as %s and avoids copying.", name, cgoSpec),
 		Source: fmt.Sprintf(`func %s(str string) (%s, *cgoAllocMap) {
-		    ptr0 := C.CString(str)
-		    mem0 := unsafe.Pointer(ptr0)
-		    allocs0 := new(cgoAllocMap)
-		    allocs0.Add(mem0)
-		    return ptr0, allocs0
+			ptr0 := C.CString(str)
+			mem0 := unsafe.Pointer(ptr0)
+			allocs0 := new(cgoAllocMap)
+			allocs0.Add(mem0)
+			return ptr0, allocs0
 		}`, name, cgoSpec),
 		Requires: []*Helper{stringHeader, cgoAllocMap},
 	}
@@ -1057,18 +1062,18 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 			gen.writeFunctionParamsEx(buf, "", decl.Spec)
 
 			proxy = fmt.Sprintf(`
-			    const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
-			    __v := make(%s, *count)
-			    
-			    for i0 := range __v {
-			        ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(__ret)) + uintptr(i0)*uintptr(sizeOfPtr)))
-			        ptrRow := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1))))
-			        // completion of the function
-			        __v[i0] = make([]byte, %sLength(%s))
-			        for i1 := range __v[i0] {
-			            ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(i1)*uintptr(sizeOfPlainValue)))
-			            __v[i0][i1] = (%s)(unsafe.Pointer(ptr2))
-			        }
+				const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
+				__v := make(%s, *count)
+				
+				for i0 := range __v {
+					ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(__ret)) + uintptr(i0)*uintptr(sizeOfPtr)))
+					ptrRow := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1))))
+					// completion of the function
+					__v[i0] = make([]byte, %sLength(%s))
+					for i1 := range __v[i0] {
+						ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(i1)*uintptr(sizeOfPlainValue)))
+						__v[i0][i1] = (%s)(unsafe.Pointer(ptr2))
+					}
 				}`, cgoSpec.Base, goSpec, cgoSpec, cgoSpecP1, unexportName(decl.Name), buf.String(), cgoSpecP1, goSpecS0P1)
 		} else {
 			helper := gen.getPackHelper(memTip, goSpec, cgoSpec)
@@ -1093,12 +1098,12 @@ func (gen *Generator) proxyRetToGo(wr io.Writer, decl *tl.CDecl, memTip tl.Tip, 
 			gen.writeFunctionParamsEx(buf, "", decl.Spec)
 
 			proxy = fmt.Sprintf(`
-			    const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
-			    // completion of the function
-			    __v := make([]byte, %sLength(%s))
-			    for i0 := range __v {
-			        ptr0 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(__ret)) + uintptr(i0)*uintptr(sizeOfPlainValue)))
-			        __v[i0] = (%s)(unsafe.Pointer(ptr0))
+				const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
+				// completion of the function
+				__v := make([]byte, %sLength(%s))
+				for i0 := range __v {
+					ptr0 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(__ret)) + uintptr(i0)*uintptr(sizeOfPlainValue)))
+					__v[i0] = (%s)(unsafe.Pointer(ptr0))
 				}`, cgoSpec.Base, unexportName(decl.Name), buf.String(), cgoSpec, goSpecS0P1)
 		} else {
 			specStr := ptrs(goSpec.Pointers) + goSpec.PlainType()
@@ -1293,16 +1298,16 @@ var (
 	sliceHeader = &Helper{
 		Name: "sliceHeader",
 		Source: `type sliceHeader struct {
-	        Data unsafe.Pointer
-	        Len  int
-	        Cap  int
+			Data unsafe.Pointer
+			Len  int
+			Cap  int
 		}`,
 	}
 	stringHeader = &Helper{
 		Name: "stringHeader",
 		Source: `type stringHeader struct {
-	        Data unsafe.Pointer
-        	Len  int
+			Data unsafe.Pointer
+			Len  int
 		}`,
 	}
 	rawString = &Helper{
