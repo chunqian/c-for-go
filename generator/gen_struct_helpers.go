@@ -148,7 +148,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	members := gen.getStructMembersHelpers(cStructName, spec)
 	fmt.Fprintf(buf, "func New%s(%s) %s {", goStructName, members, goStructName)
 	buf.Write(gen.getNewStructSource(goStructName, cStructName, spec))
-    fmt.Fprintf(buf, `
+	fmt.Fprintf(buf, `
         ret0, a0 := obj.passRef()
         if len(a0.m) > 0 {
             panic("Cgo memory alloced, please use func Alloc%s.")
@@ -167,7 +167,7 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	members = gen.getStructMembersHelpers(cStructName, spec)
 	fmt.Fprintf(buf, "func Alloc%s(%s) (*%s, *cgoAllocMap) {", goStructName, members, goStructName)
 	buf.Write(gen.getNewStructSource(goStructName, cStructName, spec))
-    fmt.Fprintf(buf, `
+	fmt.Fprintf(buf, `
         ret0, a0 := obj.passRef()
 	    ret1 := (*%s)(unsafe.Pointer(ret0))
 	    return ret1, a0
@@ -232,6 +232,130 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	// 		"Do not forget to call this method whether you get a struct for C object and want to read its values.",
 	// 	Source: buf.String(),
 	// })
+
+	// More
+	if spec.GetPointers() > 0 {
+		return nil // can't addess a pointer receiver
+	}
+	// cgoSpec := gen.tr.CGoSpec(spec, true)
+	structSpec := spec.(*tl.CStructSpec)
+
+	if !gen.cfg.Options.StructAccessors {
+		return
+	}
+	ptrTipRx, typeTipRx, memTipRx := gen.tr.TipRxsForSpec(tl.TipScopeType, cStructName, spec)
+	for i, m := range structSpec.Members {
+		if len(m.Name) == 0 {
+			continue
+		}
+		buf.Reset()
+		typeName := m.Spec.GetBase()
+		switch m.Spec.Kind() {
+		case tl.StructKind, tl.OpaqueStructKind, tl.UnionKind, tl.EnumKind:
+			if !gen.tr.IsAcceptableName(tl.TargetType, typeName) {
+				continue
+			}
+		}
+		memTip := memTipRx.TipAt(i)
+		if !memTip.IsValid() {
+			memTip = gen.MemTipOf(m)
+		}
+		ptrTip := ptrTipRx.TipAt(i)
+		if memTip == tl.TipMemRaw {
+			ptrTip = tl.TipPtrSRef
+		}
+		typeTip := typeTipRx.TipAt(i)
+		goSpec := gen.tr.TranslateSpec(m.Spec, ptrTip, typeTip)
+		cgoSpec := gen.tr.CGoSpec(m.Spec, false)
+		// does not work for function pointers
+		if goSpec.Pointers > 0 && goSpec.Base == "func" {
+			continue
+		}
+		const public = true
+		goName := string(gen.tr.TransformName(tl.TargetType, m.Name, public))
+		arr := len(goSpec.OuterArr.Sizes()) > 0 || len(goSpec.InnerArr.Sizes()) > 0
+		if !arr {
+			goSpec.Pointers += 1
+			cgoSpec.Pointers += 1
+		}
+
+		// Get* func
+		switch {
+		case goSpec.Kind == tl.StructKind && goSpec.Slices == 0 && goSpec.Pointers == 0 && len(goSpec.OuterArr.Sizes()) == 1:
+			goSpecS0P0Out0 := goSpec
+			goSpecS0P0Out0.OuterArr = ""
+
+			fmt.Fprintf(buf, "func (x *%s) %ser(index int32) *%s", goStructName, goName, goSpecS0P0Out0)
+			fmt.Fprintf(buf, `{
+				var ret *%s
+
+				ptr0 := &x.%s
+				ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(index)*uintptr(sizeOf%sValue)))
+				ret = new%sRef(unsafe.Pointer(ptr1)).convert()
+
+				return ret
+			}`, goSpecS0P0Out0, goName, cgoSpec.Base, goSpecS0P0Out0, goSpecS0P0Out0)
+		case goSpec.Kind == tl.StructKind && goSpec.Slices == 1:
+			goSpecS0P0 := goSpec
+			goSpecS0P0.Slices -= 1
+			goSpecS0P0.Pointers -= 1
+
+			fmt.Fprintf(buf, "func (x *%s) %ser(index int32) *%s", goStructName, goName, goSpecS0P0)
+			fmt.Fprintf(buf, `{
+				var ret *%s
+
+				ptr0 := x.%s
+				ptr1 := (*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(index)*uintptr(sizeOf%sValue)))
+				ret = new%sRef(unsafe.Pointer(ptr1)).convert()
+
+				return ret
+			}`, goSpecS0P0, goName, cgoSpec.Base, goSpecS0P0, goSpecS0P0)
+		case goSpec.Kind == tl.StructKind && goSpec.Slices == 2:
+			goSpecS0P0 := goSpec
+			goSpecS0P0.Pointers -= 1
+			goSpecS0P0.Slices -= 2
+
+			cgoSpecP2 := cgoSpec
+			cgoSpecP2.Pointers -= 1
+
+			cgoSpecP1 := cgoSpec
+			cgoSpecP1.Pointers -= 2
+
+			cgoSpecP0 := cgoSpec
+			cgoSpecP0.Pointers -= 3
+			fmt.Fprintf(buf, "func (x *%s) %ser(row int32, column int32) *%s", goStructName, goName, goSpecS0P0)
+			fmt.Fprintf(buf, `{
+				var ret *%s
+
+				ptr0 := x.%s
+				ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(row)*uintptr(sizeOfPtr)))
+				ptr2 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(*ptr1)) + uintptr(column)*uintptr(sizeOf%sValue)))
+				ret = new%sRef(unsafe.Pointer(ptr2)).convert()
+
+				return ret
+			}`, goSpecS0P0, goName, cgoSpecP2, cgoSpecP1, m.Spec.GetBase(), m.Spec.GetBase())
+		case goSpec.Kind == tl.PlainTypeKind && goSpec.Slices > 0:
+			goSpecS0 := goSpec
+			goSpecS0.Slices = 0
+
+			fmt.Fprintf(buf, "func (x *%s) %ser(index int32) %s {\n", goStructName, goName, goSpecS0)
+			toProxy, _ := gen.proxyValueToGo(memTip, "ret", goName, goSpec, cgoSpec)
+			fmt.Fprintf(buf, "\tvar ret %s\n", goSpecS0)
+			fmt.Fprintf(buf, "\t%s\n", toProxy)
+			fmt.Fprintf(buf, "\treturn ret\n")
+			fmt.Fprintf(buf, "}\n")
+		}
+
+		if len(goSpec.OuterArr.Sizes()) == 1 || goSpec.Slices > 0 {
+			helpers = append(helpers, &Helper{
+				Name:        fmt.Sprintf("%s.%s", goStructName, goName),
+				Description: fmt.Sprintf("%s returns a reference to C object within a struct", goName),
+				Source:      buf.String(),
+			})
+			buf.Reset()
+		}
+
+	}
 
 	return
 }

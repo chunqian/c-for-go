@@ -947,13 +947,10 @@ func (gen *Generator) proxyValueToGo(memTip tl.Tip, varName, ptrName string,
 		cgoSpecP1.Pointers -= 1
 		fmt.Fprintf(buf, `
 			const sizeOfPlainValue = unsafe.Sizeof([1]%s{})
-			ret = make(%s, %sCount)
-			ptr0 := s.%s
-		    // c struct pointer offset
-		    for i0 := range ret {
-		        ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(i0)*uintptr(sizeOfPlainValue)))
-				ret[i0] = (%s)(unsafe.Pointer(ptr1))
-		    }`, cgoSpecP0, goSpec, ptrName, ptrName, cgoSpecP1, goSpecS0P1)
+			ptr0 := x.%s
+			ptr1 := (%s)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr0)) + uintptr(index)*uintptr(sizeOfPlainValue)))
+			ret = (%s)(unsafe.Pointer(ptr1))
+			`, cgoSpecP0, ptrName, cgoSpecP1, goSpecS0P1)
 
 		proxy = buf.String()
 		return
