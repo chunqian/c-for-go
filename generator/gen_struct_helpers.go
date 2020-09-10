@@ -49,7 +49,7 @@ func (gen *Generator) getStructMembersHelpers(cStructName string, spec tl.CType)
 		}
 		const public = true
 		goName := string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-		goName = "v" + goName
+		goName = unexportName(goName) + "0"
 		// arr := len(goSpec.OuterArr.Sizes()) > 0 || len(goSpec.InnerArr.Sizes()) > 0
 		// if !arr {
 		// 	goSpec.Pointers += 1
@@ -149,17 +149,17 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	fmt.Fprintf(buf, "func New%s(%s) %s {", goStructName, members, goStructName)
 	buf.Write(gen.getNewStructSource(goStructName, cStructName, spec))
 	fmt.Fprintf(buf, `
-        ret0, a0 := obj.passRef()
-        if len(a0.m) > 0 {
+        ret0, alloc0 := obj.passRef()
+        if len(alloc0.m) > 0 {
             panic("Cgo memory alloced, please use func Alloc%s.")
         }
         return *(*%s)(unsafe.Pointer(ret0))
     `, goStructName, goStructName)
 	buf.WriteRune('}')
-	nameT := fmt.Sprintf("New%s", goStructName)
+	name = fmt.Sprintf("New%s", goStructName)
 	helpers = append(helpers, &Helper{
-		Name:        nameT,
-		Description: nameT + " new Go object and Mapping to C object.",
+		Name:        name,
+		Description: name + " new Go object and Mapping to C object.",
 		Source:      buf.String(),
 	})
 
@@ -168,15 +168,15 @@ func (gen *Generator) getStructHelpers(goStructName []byte, cStructName string, 
 	fmt.Fprintf(buf, "func Alloc%s(%s) (*%s, *cgoAllocMap) {", goStructName, members, goStructName)
 	buf.Write(gen.getNewStructSource(goStructName, cStructName, spec))
 	fmt.Fprintf(buf, `
-        ret0, a0 := obj.passRef()
+        ret0, alloc0 := obj.passRef()
 	    ret1 := (*%s)(unsafe.Pointer(ret0))
-	    return ret1, a0
+	    return ret1, alloc0
     `, goStructName)
 	buf.WriteRune('}')
-	nameT = fmt.Sprintf("Alloc%s", goStructName)
+	name = fmt.Sprintf("Alloc%s", goStructName)
 	helpers = append(helpers, &Helper{
-		Name:        nameT,
-		Description: nameT + " new Go object and Mapping to C object.",
+		Name:        name,
+		Description: name + " new Go object and Mapping to C object.",
 		Source:      buf.String(),
 	})
 
@@ -621,15 +621,15 @@ func (gen *Generator) getNewStructSource(goStructName []byte, cStructName string
 			const public = true
 			// goName := "x." + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
 			goName := "g" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-			goElementName := "v" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
+			goElementName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "0"
 
 			fmt.Fprintf(buf, "obj.%s  = *new%sRef(unsafe.Pointer(&%s))\n", goName, typeName, goElementName)
 		case m.Spec.Kind() == tl.StructKind && m.Spec.GetPointers() == 1 && len(goSpec.OuterArr.Sizes()) == 0:
 			const public = true
 			// goName := "x." + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
 			goName := "g" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-			goElementName := "v" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-			goTmpName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "T"
+			goElementName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "0"
+			goTmpName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "1"
 
 			goSpec.Raw = "g" + goSpec.Raw
 			fmt.Fprintf(buf, `
@@ -644,8 +644,8 @@ func (gen *Generator) getNewStructSource(goStructName []byte, cStructName string
 			const public = true
 			// goName := "x." + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
 			goName := "g" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-			goElementName := "v" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-			goTmpName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "T"
+			goElementName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "0"
+			goTmpName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "1"
 
 			goSpec.Raw = "g" + goSpec.Raw
 
@@ -668,8 +668,8 @@ func (gen *Generator) getNewStructSource(goStructName []byte, cStructName string
 			const public = true
 			// goName := "x." + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
 			goName := "g" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-			goElementName := "v" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-			goTmpName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "T"
+			goElementName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "0"
+			goTmpName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "1"
 
 			goSpec.Raw = "g" + goSpec.Raw
 			fmt.Fprintf(buf, `
@@ -684,7 +684,7 @@ func (gen *Generator) getNewStructSource(goStructName []byte, cStructName string
 			const public = true
 			// goName := "x." + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
 			goName := "g" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
-			goElementName := "v" + string(gen.tr.TransformName(tl.TargetType, m.Name, public))
+			goElementName := unexportName(string(gen.tr.TransformName(tl.TargetType, m.Name, public))) + "0"
 
 			fmt.Fprintf(buf, "obj.%s  = %s\n", goName, goElementName)
 		}
