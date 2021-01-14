@@ -46,6 +46,7 @@ A simple [Makefile template](https://github.com/xlab/c-for-go/wiki/Makefile-temp
 * https://github.com/xlab/hamlib-go
 * https://github.com/5k3105/nidaq
 * https://github.com/SphereSoftware/pdf-go
+* https://github.com/chunqian/go-raylib
 * ...
 * [Request yours](max@kc.vc)
 
