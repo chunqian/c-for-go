@@ -6,7 +6,7 @@ This project allows to reuse existing C/C++ libraries in your Go applications, b
 
 ## Modify
 
-automatic C-Go bindings generator for raylib C version.
+Support raylib C version.
 
 ### Process overview
 
