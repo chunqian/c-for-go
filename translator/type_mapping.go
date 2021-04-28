@@ -28,6 +28,7 @@ var (
 	VoidSpec          = GoTypeSpec{Base: "byte", OuterArr: "[0]"}
 	//
 	InterfaceSliceSpec = GoTypeSpec{Base: "[]interface{}"}
+	UByteSliceSpec = GoTypeSpec{Base: "byte", Slices: 1, Unsigned: true}
 )
 
 // https://en.wikipedia.org/wiki/C_data_types
@@ -41,7 +42,8 @@ var builtinCTypeMap = CTypeMap{
 	// unsigned char -> unsigned byte
 	CTypeSpec{Base: "char", Unsigned: true}: ByteSpec,
 	// const unsigned char* -> string
-	CTypeSpec{Base: "char", Const: true, Unsigned: true, Pointers: 1}: UStringSpec,
+	// CTypeSpec{Base: "char", Const: true, Unsigned: true, Pointers: 1}: UStringSpec,
+	CTypeSpec{Base: "char", Const: true, Unsigned: true, Pointers: 1}: UByteSliceSpec,
 	// short -> int16
 	CTypeSpec{Base: "short"}: Int16Spec,
 	// unsigned short -> uint16
